@@ -136,6 +136,38 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
 .custom-range label{flex:1;font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:4px}
 .custom-range input{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px;min-width:0}
 
+/* ---------- receivables | payables (Tally-style) ---------- */
+.tb-title{text-align:center;font-weight:800;font-size:17px;padding:11px 12px;background:var(--brand);color:var(--gold);line-height:1.3}
+.tb-title small{display:block;font-size:12.5px;font-weight:600;color:#c9d3e3;letter-spacing:.2px}
+.tb{display:grid;grid-template-columns:1fr 1fr}
+.tb-side{display:flex;flex-direction:column;min-width:0}
+.tb-side:first-child{border-right:1px solid var(--muted)}
+.tb-hd{display:flex;justify-content:space-between;align-items:baseline;gap:6px;padding:9px 10px;border-bottom:1px solid var(--muted);font-weight:800;font-size:15px}
+.tb-hd.s-rec{background:var(--in-bg);color:var(--in)} .tb-hd.s-pay{background:var(--out-bg);color:var(--out)}
+.tb-hc{font-size:13px}
+.tb-body{flex:1;padding:4px 0 8px}
+.tb-r,.row.tb-r{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 10px;font-size:15px;border-bottom:0}
+.tb-n{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.tb-a{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.tb-r.l2{font-style:italic}
+.tb-r.l2 .tb-n{padding-left:6px}
+.row.tb-r.l2 .tb-n{text-decoration:underline dotted;text-underline-offset:3px}
+.tb-r.l2.s-rec .tb-a{color:var(--in)} .tb-r.l2.s-pay .tb-a{color:var(--out)}
+.tb-r.tb-none{color:var(--muted)}
+.tb-r.tb-total{font-weight:800;font-size:15.5px;padding:9px 10px;border-top:1px solid var(--muted);border-bottom:3px double var(--muted);font-style:normal}
+.tb-r.tb-total.s-rec{color:var(--in)} .tb-r.tb-total.s-pay{color:var(--out)}
+.tb-r.tb-total .tb-a{font-weight:800}
+.tb-net{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:13px 12px;background:var(--brand);color:#fff;font-weight:800;font-size:17px}
+.tb-net small{display:block;font-size:12.5px;font-weight:600;opacity:.8;margin-top:2px}
+.tb-net span:last-child{font-variant-numeric:tabular-nums}
+.tb-net .in{color:#6fe3a5} .tb-net .out{color:#ff9b91}
+@media (max-width:420px){
+  .tb-r,.row.tb-r{font-size:14px;padding:6px 8px;gap:6px}
+  .tb-hd{padding:9px 8px;font-size:14px}
+  .tb-r.tb-total{font-size:14px;padding:9px 8px}
+  .tb-r.l2 .tb-n{padding-left:2px}
+}
+
 /* ---------- phone ---------- */
 html{-webkit-text-size-adjust:100%}
 button,.row,.tab,.lcard,select,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -505,6 +537,7 @@ function renderHome(){
       <div class="sec-head ${cls}"><span>${title}</span><span>${groups[k].length} ${groups[k].length===1?"party":"parties"}</span></div>
       ${groups[k].map(rowHtml).join("")}
       <div class="sec-total ${cls}"><span>Total ${title}</span><span>${fmt(total(groups[k]))}</span></div>` : "";
+    if(!q){ list.innerHTML = balanceSheetHtml(groups, rowHtml); return; }   // search → simple grouped list
     list.innerHTML =
       section("rec","s-rec",T.rec) + section("pay","s-pay",T.pay) +
       (groups.nil.length ? `<div class="sec-head s-nil"><span>Settled</span><span>${groups.nil.length}</span></div>${groups.nil.map(rowHtml).join("")}` : "") +
@@ -520,6 +553,39 @@ function renderHome(){
         <div class="amt ${e.type==="IN"?"in":"out"}">${e.type==="IN"?"+":"−"}${fmt(e.amount)}</div>
       </div>`).join("");
   }
+}
+
+/* ---------- receivables | payables (Tally-style statement) ----------
+   Left  : Receivables — parties whose balance is in your favour (Out > In)
+   Right : Payables    — parties you owe (In > Out)
+   Bottom: Net = Total receivables − Total payables */
+const num2 = n => { const v=Math.round(Number(n||0)*100)/100; return (v<0?"(-)":"") + Math.abs(v).toLocaleString(LOCALE,{minimumFractionDigits:2,maximumFractionDigits:2}); };
+function balanceSheetHtml(groups, rowHtml){
+  const bal = p => Math.abs(p.out-p.in);
+  const recT = groups.rec.reduce((s,p)=>s+bal(p),0), payT = groups.pay.reduce((s,p)=>s+bal(p),0);
+  const net = Math.round((recT-payT)*100)/100;
+  const company = esc(CFG.COMPANY_NAME || CFG.APP_NAME || "Cash Book");
+  const asAt = esc(prettyDate(todayISO()));
+  const T = CASHFLOW ? {rec:"Net Paid", pay:"Net Received"} : {rec:"Receivables", pay:"Payables"};
+  const rows = (arr, cls) => arr.length
+    ? arr.map(p=>`<div class="tb-r l2 ${cls} row" data-person="${esc(p.name)}"><span class="tb-n">${esc(p.name)}</span><span class="tb-a">${num2(bal(p))}</span></div>`).join("")
+    : `<div class="tb-r l2 tb-none"><span class="tb-n">None</span><span class="tb-a"></span></div>`;
+  const side = (title, cls, arr, total) => `
+    <div class="tb-side">
+      <div class="tb-hd ${cls}"><span class="tb-ht">${title}</span><span class="tb-hc">${esc(CUR)}</span></div>
+      <div class="tb-body">${rows(arr, cls)}</div>
+      <div class="tb-r tb-total ${cls}"><span class="tb-n">Total</span><span class="tb-a">${num2(total)}</span></div>
+    </div>`;
+  const settled = groups.nil.length ? `<div class="sec-head s-nil"><span>Settled parties (nil balance)</span><span>${groups.nil.length}</span></div>${groups.nil.map(rowHtml).join("")}` : "";
+  return `
+  <div class="tb-title">${company}<small>Receivables &amp; Payables · as at ${asAt}</small></div>
+  <div class="tb">
+    ${side(T.rec, "s-rec", groups.rec, recT)}
+    ${side(T.pay, "s-pay", groups.pay, payT)}
+  </div>
+  <div class="tb-net"><span>Net ${net>0.004?"receivable":net<-0.004?"payable":"position"}<small>${T.rec} − ${T.pay}</small></span>
+    <span class="${net>0.004?"in":net<-0.004?"out":""}">${num2(Math.abs(net))}</span></div>
+  ${settled}`;
 }
 
 function ledgerRows(){

@@ -3,6 +3,8 @@
 //          Leave it blank to run the app in demo mode (sample data, nothing is saved).
 window.KHATA_CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbyOMGj-E-UbxK9ftjC6LAO5K0E9IjFHwKZhGYCL1d45JRI6-pZugd4P2sMc6RJIHDrU/exec",
+  // Company name shown on the balance sheet (defaults to APP_NAME)
+  COMPANY_NAME: "",
   APP_NAME: "Balance",
   CURRENCY: "TSH",
   // "khata"    → party balances shown as "Receivable" / "Payable"

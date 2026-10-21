@@ -5,7 +5,7 @@ The app runs in the browser (and can be installed on a phone or computer), and a
 
 ## Features
 - Record **Cash In** and **Cash Out** entries with date, payment mode and note
-- **Party list in balance-sheet format:** Receivables (green) and Payables (red), each with a total, followed by the net position
+- **Receivables & Payables statement:** Receivables on the left, Payables on the right, each with a total, and the net position below
 - **Party ledger** with date-wise entries and running balance; export to CSV, print / save as PDF, or share a summary
 - **Opening balance** per party
 - Summary of Cash In, Cash Out and Net for: all time, today, this month, last month, current financial year, or a **custom date range**
@@ -52,8 +52,13 @@ On first use, the script adds **Mode | Note | ID** to the right and fills an ID 
 - **Home summary:** Net = Cash In − Cash Out for the selected period.
 - **Party balance:** Cash Out − Cash In (plus opening balance).
   Positive = **Receivable** (you paid them more than you received) — shown in green; negative = **Payable** — shown in red.
-- **Parties tab:** grouped like a balance sheet — Receivables with total, Payables with total, settled parties, and **Net position** (Total Receivables − Total Payables).
-  Set `BALANCE_STYLE: "cashflow"` to show **Net Paid / Net Received** instead.
+- **Parties tab — Receivables & Payables statement (Tally style), as at today:**
+  - **Left:** Receivables — each party whose balance is in your favour, with total (green).
+  - **Right:** Payables — each party you owe, with total (red).
+  - **Bottom:** Net receivable / net payable = Total receivables − Total payables.
+  - Amounts are shown to 2 decimals. Parties with a nil balance are listed below as "Settled parties".
+  - Tap a party name to open its ledger. Typing in Search switches to a simple filtered list.
+  - Set `COMPANY_NAME` in `config.js` to show the company name in the header.
 - Party balances are always all-time (as at today); the period filter, including the custom range, applies to the summary and the *All Entries* tab.
 - Amounts use international grouping (115,000). Set `NUMBER_LOCALE: "en-IN"` in `config.js` for Indian grouping (1,15,000).
 
