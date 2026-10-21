@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f5c4d">
+<title>Cash Khata</title>
+<script src="config.js"></script>
+<style>
+:root{
+  --bg:#f4f6f5; --card:#ffffff; --ink:#15211d; --muted:#6b7a75; --line:#e3e8e6;
+  --brand:#0f5c4d; --brand-2:#13755f; --in:#127a46; --in-bg:#e7f5ed; --out:#c0392b; --out-bg:#fbeceb;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05); --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f1513; --card:#18211e; --ink:#e8efec; --muted:#93a29d; --line:#26322e;
+    --brand:#1d8a71; --brand-2:#23a084; --in:#4fd08b; --in-bg:#163126; --out:#ff7b6b; --out-bg:#3a1d1a; --shadow:none; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{max-width:760px;margin:0 auto;min-height:100vh;padding-bottom:110px}
+header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px}
+header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:10px;padding:8px 11px;cursor:pointer}
+.icon-btn:hover{background:rgba(255,255,255,.24)}
+.banner{background:#fff4d6;color:#6b4e00;padding:8px 16px;font-size:13px}
+@media (prefers-color-scheme: dark){.banner{background:#3a3014;color:#f3d98a}}
+.wrap{padding:14px 16px}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--card);border-radius:var(--r);padding:12px;box-shadow:var(--shadow);border:1px solid var(--line);min-width:0}
+.stat .lbl{font-size:12px;color:var(--muted)}
+.stat .val{font-size:18px;font-weight:700;margin-top:2px;overflow-wrap:anywhere}
+.in{color:var(--in)} .out{color:var(--out)}
+.toolbar{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}
+.toolbar input,.toolbar select{flex:1;min-width:140px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.tabs{display:flex;gap:6px;margin-top:14px}
+.tab{flex:1;padding:9px;border:1px solid var(--line);background:var(--card);border-radius:10px;cursor:pointer;font-weight:600;color:var(--muted)}
+.tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
+.list{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--line);overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.row:last-child{border-bottom:0}
+.row:hover{background:color-mix(in srgb,var(--brand) 6%,transparent)}
+.avatar{width:40px;height:40px;border-radius:50%;background:color-mix(in srgb,var(--brand) 16%,var(--card));color:var(--brand-2);display:grid;place-items:center;font-weight:700;flex:none}
+.grow{flex:1;min-width:0}
+.name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:12px;color:var(--muted)}
+.amt{text-align:right;font-weight:700;white-space:nowrap}
+.amt .sub{font-weight:400}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.fab-bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:linear-gradient(transparent,var(--bg) 35%);padding:18px 16px calc(14px + env(safe-area-inset-bottom))}
+.fab-inner{max-width:728px;margin:0 auto;display:flex;gap:10px}
+.btn{border:0;border-radius:12px;padding:13px 16px;font-weight:700;cursor:pointer}
+.btn-in{background:var(--in);color:#fff;flex:1}
+.btn-out{background:var(--out);color:#fff;flex:1}
+.btn-ghost{background:var(--card);border:1px solid var(--line)}
+.btn-brand{background:var(--brand);color:#fff}
+.btn:disabled{opacity:.6;cursor:wait}
+/* ledger */
+.ledger-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.ledger-head .avatar{width:48px;height:48px;font-size:18px}
+.bal-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+table.led{width:100%;border-collapse:collapse;background:var(--card);font-size:14px}
+table.led th{font-size:12px;color:var(--muted);font-weight:600;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--brand) 5%,var(--card))}
+table.led td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.led tr.click{cursor:pointer}
+table.led tr.click:hover td{background:color-mix(in srgb,var(--brand) 5%,transparent)}
+table.led .num{text-align:right;white-space:nowrap}
+td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
+.tbl-wrap{border-radius:var(--r);overflow:auto;border:1px solid var(--line);box-shadow:var(--shadow)}
+.chip{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;background:var(--line);color:var(--muted);margin-left:4px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.overlay.show{display:flex}
+@media (min-width:640px){.overlay{align-items:center}}
+.sheet{background:var(--card);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+@media (min-width:640px){.sheet{border-radius:18px}}
+.sheet h2{margin:0 0 12px;font-size:18px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.seg{display:flex;gap:8px;margin-bottom:12px}
+.seg button{flex:1;padding:11px;border-radius:10px;border:2px solid var(--line);background:var(--bg);font-weight:700;cursor:pointer}
+.seg button.on-in{border-color:var(--in);background:var(--in-bg);color:var(--in)}
+.seg button.on-out{border-color:var(--out);background:var(--out-bg);color:var(--out)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sheet-actions{display:flex;gap:8px;margin-top:6px}
+.sheet-actions .btn{flex:1}
+.btn-del{background:transparent;color:var(--out);border:1px solid var(--out)}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;z-index:40;font-size:14px;display:none;max-width:90%}
+.lock{max-width:360px;margin:12vh auto;padding:24px 16px;text-align:center}
+.lock input{width:100%;padding:14px;font-size:20px;text-align:center;letter-spacing:4px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin:16px 0}
+.loading{padding:30px;text-align:center;color:var(--muted)}
+.hidden{display:none!important}
+@media print{
+  header.top,.fab-bar,.actions,.banner,.toolbar,.tabs,#btnBack{display:none!important}
+  body{background:#fff;color:#000} .app{padding:0}
+  .tbl-wrap,.bal-box,.stat{box-shadow:none}
+}
+@media (max-width:420px){ .stat .val{font-size:15px} table.led{font-size:13px} table.led td,table.led th{padding:8px 6px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="icon-btn hidden" id="btnBack" aria-label="Back">←</button>
+    <h1 id="title">Cash Khata</h1>
+    <button class="icon-btn" id="btnRefresh" title="Refresh">⟳</button>
+    <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
+  </header>
+  <div class="banner hidden" id="demoBanner">Preview — tumhari Sheet ki 4 rows ki copy hai, yahan kuch save nahi hoga. ⚙ Settings me Apps Script URL daalo.</div>
+
+  <!-- Lock screen -->
+  <section id="lockView" class="lock hidden">
+    <h2>🔒 PIN daalo</h2>
+    <div class="sub">Apps Script me jo APP_PIN set kiya hai</div>
+    <input id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••">
+    <button class="btn btn-brand" style="width:100%" id="btnUnlock">Open</button>
+    <div class="sub" id="lockErr" style="color:var(--out);margin-top:10px"></div>
+  </section>
+
+  <!-- Home -->
+  <section id="homeView" class="wrap hidden">
+    <div class="toolbar" style="margin-top:0">
+      <select id="period">
+        <option value="all">All time</option>
+        <option value="today">Aaj</option>
+        <option value="month">Is mahine</option>
+        <option value="lastmonth">Pichhle mahine</option>
+        <option value="fy">Current FY (Apr–Mar)</option>
+      </select>
+    </div>
+    <div class="summary">
+      <div class="stat"><div class="lbl">Cash In ↓</div><div class="val in" id="sumIn">0</div></div>
+      <div class="stat"><div class="lbl">Cash Out ↑</div><div class="val out" id="sumOut">0</div></div>
+      <div class="stat"><div class="lbl">Net (In − Out)</div><div class="val" id="sumNet">0</div></div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="parties">Parties</button>
+      <button class="tab" data-tab="entries">All Entries</button>
+    </div>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Search naam / note…">
+      <select id="sort">
+        <option value="recent">Recent pehle</option>
+        <option value="name">Naam (A–Z)</option>
+        <option value="bal">Balance (bada pehle)</option>
+      </select>
+    </div>
+    <div class="list" id="list"><div class="loading">Loading…</div></div>
+  </section>
+
+  <!-- Ledger -->
+  <section id="ledgerView" class="wrap hidden">
+    <div class="ledger-head">
+      <div class="avatar" id="ledAvatar">A</div>
+      <div class="grow">
+        <div class="name" id="ledName" style="font-size:18px"></div>
+        <div class="sub" id="ledMeta"></div>
+      </div>
+    </div>
+    <div class="bal-box">
+      <div><div class="sub">Total In</div><div class="in" style="font-weight:700" id="ledIn"></div></div>
+      <div><div class="sub">Total Out</div><div class="out" style="font-weight:700" id="ledOut"></div></div>
+      <div style="text-align:right"><div class="sub">Balance</div><div style="font-weight:800;font-size:18px" id="ledBal"></div></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="btnCsv">⬇ CSV</button>
+      <button class="btn btn-ghost" id="btnPrint">🖨 Print / PDF</button>
+      <button class="btn btn-ghost" id="btnShare">📤 Share summary</button>
+      <button class="btn btn-ghost" id="btnRename">✎ Rename</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="led">
+        <thead><tr><th>Date</th><th>Details</th><th class="num">In ↓</th><th class="num">Out ↑</th><th class="num">Balance</th></tr></thead>
+        <tbody id="ledBody"></tbody>
+      </table>
+    </div>
+    <div class="sub" style="margin-top:8px">Row pe click karke entry edit / delete kar sakte ho.</div>
+  </section>
+</div>
+
+<div class="fab-bar hidden" id="fabBar">
+  <div class="fab-inner">
+    <button class="btn btn-in" id="btnAddIn">+ Cash In</button>
+    <button class="btn btn-out" id="btnAddOut">− Cash Out</button>
+  </div>
+</div>
+
+<!-- Entry modal -->
+<div class="overlay" id="entryModal">
+  <div class="sheet">
+    <h2 id="entryTitle">Nayi Entry</h2>
+    <div class="seg">
+      <button type="button" id="segIn">↓ Cash In</button>
+      <button type="button" id="segOut">↑ Cash Out</button>
+    </div>
+    <div class="field"><label>Person / Party</label>
+      <input id="fPerson" list="peopleList" autocomplete="off" placeholder="Naam likho ya select karo">
+      <datalist id="peopleList"></datalist>
+    </div>
+    <div class="two">
+      <div class="field"><label>Amount</label><input id="fAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+      <div class="field"><label>Date</label><input id="fDate" type="date"></div>
+    </div>
+    <div class="field"><label>Mode</label>
+      <select id="fMode"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option><option>Other</option></select>
+    </div>
+    <div class="field"><label>Note (optional)</label><textarea id="fNote" rows="2" placeholder="Kis cheez ka payment…"></textarea></div>
+    <div class="sheet-actions">
+      <button class="btn btn-del hidden" id="btnDelete">Delete</button>
+      <button class="btn btn-ghost" id="btnCancel">Cancel</button>
+      <button class="btn btn-brand" id="btnSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="settingsModal">
+  <div class="sheet">
+    <h2>Settings</h2>
+    <div class="field"><label>Apps Script Web App URL</label>
+      <input id="sUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <div class="field"><label>PIN</label><input id="sPin" type="password" placeholder="APP_PIN"></div>
+    <div class="sub" style="margin-bottom:12px">URL khali = Demo mode. Yeh settings sirf is browser me save hoti hain.</div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="btnTest">Test</button>
+      <button class="btn btn-ghost" id="btnLogout">Logout</button>
+      <button class="btn btn-brand" id="btnSaveSettings">Save</button>
+    </div>
+    <div class="sub" id="testMsg" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+const CFG = window.KHATA_CONFIG || {};
+const CUR = CFG.CURRENCY || "₹";
+const $ = s => document.querySelector(s);
+
+/* ---------- safe storage ---------- */
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+const state = {
+  url: store.get("khata_url") || CFG.API_URL || "",
+  pin: store.get("khata_pin") || "",
+  entries: [],
+  view: "home",
+  tab: "parties",
+  person: null,
+  editing: null,
+  type: "IN"
+};
+const isDemo = () => !state.url;
+
+/* ---------- helpers ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => CUR + Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:0,maximumFractionDigits:2});
+const todayISO = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const prettyDate = iso => { if(!iso) return ""; const [y,m,d]=iso.split("-"); const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]||m; return `${+d} ${mn} ${y}`; };
+const initials = n => String(n).trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase() || "?";
+const key = n => String(n).trim().toLowerCase();
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2600); }
+
+/* Balance convention (Khata style): per person, Out − In.
+   > 0  => aapne zyada diya  => "Lena hai" (unse lena baaki)
+   < 0  => aapne zyada liya  => "Dena hai" (unhe dena baaki) */
+const CASHFLOW = String(CFG.BALANCE_STYLE||"khata").toLowerCase()==="cashflow";
+function balLabel(b){
+  if (Math.abs(b) < 0.005) return {txt:"Settled", cls:"", amt:fmt(0)};
+  if (CASHFLOW) return b > 0 ? {txt:"Net diya", cls:"out", amt:fmt(b)} : {txt:"Net mila", cls:"in", amt:fmt(-b)};
+  return b > 0 ? {txt:"Lena hai", cls:"out", amt:fmt(b)} : {txt:"Dena hai", cls:"in", amt:fmt(-b)};
+}
+
+/* ---------- API ---------- */
+let demoData = null;
+function seedDemo(){
+  // Preview ke liye tumhari "Cash Flow" sheet ki rows (dates DD/MM maan ke)
+  let i=0; const e=(date,person,type,amount)=>({id:"demo"+(++i),date,person,type,amount,mode:"",note:"",createdAt:"r"+String(i).padStart(7,"0")});
+  return [
+    e("2026-01-01","Raj","OUT",5000),
+    e("2026-10-05","Dev","IN",60000),
+    e("2026-02-06","Raj","OUT",60000),
+    e("2026-02-07","Kishan","IN",20000)
+  ];
+}
+function demoApi(action,p){
+  if(!demoData) demoData = seedDemo();
+  return new Promise(res=>setTimeout(()=>{
+    if(action==="list") return res(demoData.slice());
+    if(action==="add"){ const x={...p.entry,id:"demo"+Date.now(),createdAt:new Date().toISOString()}; demoData.push(x); return res(x); }
+    if(action==="update"){ const i=demoData.findIndex(x=>x.id===p.entry.id); if(i>-1) demoData[i]={...demoData[i],...p.entry}; return res(demoData[i]); }
+    if(action==="delete"){ demoData=demoData.filter(x=>x.id!==p.id); return res(true); }
+    if(action==="rename"){ let n=0; demoData.forEach(x=>{ if(key(x.person)===key(p.from)){ x.person=p.to; n++; } }); return res(n); }
+    res("pong");
+  },150));
+}
+async function api(action,payload={}){
+  if(isDemo()) return demoApi(action,payload);
+  let res;
+  try{
+    res = await fetch(state.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,pin:state.pin,...payload}),redirect:"follow"});
+  }catch(err){ throw new Error("Network error — URL / internet check karo"); }
+  let j; try{ j = await res.json(); }catch(e){ throw new Error("Server ne JSON nahi diya — deployment access 'Anyone' hai?"); }
+  if(!j.ok) throw new Error(j.error || "Server error");
+  return j.data;
+}
+
+/* ---------- data shaping ---------- */
+function inPeriod(iso){
+  const p = $("#period").value; if(p==="all") return true;
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  const pad=n=>String(n).padStart(2,"0");
+  if(p==="today") return iso===todayISO();
+  if(p==="month") return iso.slice(0,7)===`${y}-${pad(m+1)}`;
+  if(p==="lastmonth"){ const d=new Date(y,m-1,1); return iso.slice(0,7)===`${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
+  if(p==="fy"){ const fy = m>=3 ? y : y-1; return iso>=`${fy}-04-01` && iso<=`${fy+1}-03-31`; }
+  return true;
+}
+const sortEntries = arr => arr.slice().sort((a,b)=> a.date===b.date ? String(a.createdAt).localeCompare(String(b.createdAt)) : a.date.localeCompare(b.date));
+
+function parties(){
+  const map = new Map();
+  for(const e of state.entries){
+    const k=key(e.person);
+    if(!map.has(k)) map.set(k,{name:e.person.trim(),in:0,out:0,last:"",count:0});
+    const p=map.get(k);
+    if(e.type==="IN") p.in+=e.amount; else p.out+=e.amount;
+    p.count++; if(e.date>p.last) p.last=e.date;
+  }
+  return [...map.values()];
+}
+
+/* ---------- render ---------- */
+function setView(v){
+  state.view=v;
+  $("#lockView").classList.toggle("hidden", v!=="lock");
+  $("#homeView").classList.toggle("hidden", v!=="home");
+  $("#ledgerView").classList.toggle("hidden", v!=="ledger");
+  $("#fabBar").classList.toggle("hidden", v==="lock");
+  $("#btnBack").classList.toggle("hidden", v!=="ledger");
+  $("#btnRefresh").classList.toggle("hidden", v==="lock");
+  $("#title").textContent = v==="ledger" ? state.person : (CFG.APP_NAME || "Cash Khata");
+  $("#demoBanner").classList.toggle("hidden", !isDemo());
+  window.scrollTo(0,0);
+}
+
+function renderHome(){
+  const filtered = state.entries.filter(e=>inPeriod(e.date));
+  let tin=0,tout=0; filtered.forEach(e=> e.type==="IN" ? tin+=e.amount : tout+=e.amount);
+  $("#sumIn").textContent=fmt(tin); $("#sumOut").textContent=fmt(tout);
+  const net=tin-tout; const sn=$("#sumNet"); sn.textContent=(net<0?"−":"")+fmt(Math.abs(net)); sn.className="val "+(net>=0?"in":"out");
+
+  const q = key($("#search").value);
+  const list = $("#list");
+  if(state.tab==="parties"){
+    // party balances are always all-time (ledger truth); period filter applies to summary + entries tab
+    let ps = parties().filter(p=>!q || key(p.name).includes(q));
+    const s=$("#sort").value;
+    ps.sort((a,b)=> s==="name" ? a.name.localeCompare(b.name) : s==="bal" ? Math.abs(b.out-b.in)-Math.abs(a.out-a.in) : b.last.localeCompare(a.last));
+    if(!ps.length){ list.innerHTML=`<div class="empty">${state.entries.length?"Koi match nahi mila":"Abhi koi entry nahi — niche button se pehli entry daalo"}</div>`; return; }
+    list.innerHTML = ps.map(p=>{ const b=balLabel(p.out-p.in); return `
+      <div class="row" data-person="${esc(p.name)}">
+        <div class="avatar">${esc(initials(p.name))}</div>
+        <div class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${p.count} ${p.count===1?"entry":"entries"} · last ${esc(prettyDate(p.last))}</div></div>
+        <div class="amt ${b.cls}">${b.amt}<div class="sub">${b.txt}</div></div>
+      </div>`; }).join("");
+  } else {
+    let es = sortEntries(filtered).reverse().filter(e=>!q || key(e.person).includes(q) || key(e.note).includes(q));
+    if(!es.length){ list.innerHTML=`<div class="empty">Is period me koi entry nahi</div>`; return; }
+    list.innerHTML = es.map(e=>`
+      <div class="row" data-id="${esc(e.id)}">
+        <div class="avatar" style="background:${e.type==="IN"?"var(--in-bg)":"var(--out-bg)"};color:${e.type==="IN"?"var(--in)":"var(--out)"}">${e.type==="IN"?"↓":"↑"}</div>
+        <div class="grow"><div class="name">${esc(e.person)}</div><div class="sub">${[prettyDate(e.date),e.mode,e.note].filter(Boolean).map(esc).join(" · ")}</div></div>
+        <div class="amt ${e.type==="IN"?"in":"out"}">${e.type==="IN"?"+":"−"}${fmt(e.amount)}</div>
+      </div>`).join("");
+  }
+}
+
+function ledgerRows(){
+  const k=key(state.person);
+  let run=0;
+  return sortEntries(state.entries.filter(e=>key(e.person)===k)).map(e=>{ run += e.type==="OUT" ? e.amount : -e.amount; return {...e, run}; });
+}
+function renderLedger(){
+  const rows = ledgerRows();
+  if(!rows.length){ state.person=null; setView("home"); renderHome(); return; }
+  state.person = rows[rows.length-1].person;
+  $("#title").textContent = state.person;
+  let tin=0,tout=0; rows.forEach(r=> r.type==="IN"?tin+=r.amount:tout+=r.amount);
+  $("#ledAvatar").textContent=initials(state.person);
+  $("#ledName").textContent=state.person;
+  $("#ledMeta").textContent=`${rows.length} ${rows.length===1?"entry":"entries"} · ${prettyDate(rows[0].date)} – ${prettyDate(rows[rows.length-1].date)}`;
+  $("#ledIn").textContent=fmt(tin); $("#ledOut").textContent=fmt(tout);
+  const b=balLabel(tout-tin); const lb=$("#ledBal"); lb.textContent=`${b.amt} ${b.txt}`; lb.className=b.cls;
+  $("#ledBody").innerHTML = rows.map(r=>{ const bl=balLabel(r.run); return `
+    <tr class="click" data-id="${esc(r.id)}">
+      <td>${esc(prettyDate(r.date))}</td>
+      <td>${esc(r.note||"—")}${r.mode?`<span class="chip">${esc(r.mode)}</span>`:""}</td>
+      <td class="num ${r.type==="IN"?"cin in":""}">${r.type==="IN"?fmt(r.amount):""}</td>
+      <td class="num ${r.type==="OUT"?"cout out":""}">${r.type==="OUT"?fmt(r.amount):""}</td>
+      <td class="num"><b class="${bl.cls}">${bl.amt}</b><div class="sub">${bl.txt}</div></td>
+    </tr>`; }).join("");
+}
+function render(){ if(state.view==="ledger") renderLedger(); else if(state.view==="home") renderHome(); }
+
+/* ---------- load ---------- */
+async function load(){
+  if(state.view==="home") $("#list").innerHTML=`<div class="loading">Loading…</div>`;
+  try{
+    const data = await api("list");
+    state.entries = (data||[]).map(e=>({...e, amount:Number(e.amount)||0, type:String(e.type).toUpperCase()==="IN"?"IN":"OUT", person:String(e.person||"").trim()})).filter(e=>e.person);
+    render();
+  }catch(err){
+    if(/pin/i.test(err.message)){ store.del("khata_pin"); state.pin=""; showLock(err.message); return; }
+    $("#list").innerHTML=`<div class="empty">⚠ ${esc(err.message)}</div>`; toast(err.message);
+  }
+}
+function showLock(msg){ setView("lock"); $("#lockErr").textContent=msg||""; $("#pinInput").value=""; setTimeout(()=>$("#pinInput").focus(),50); }
+
+/* ---------- entry modal ---------- */
+function setType(t){ state.type=t; $("#segIn").className=t==="IN"?"on-in":""; $("#segOut").className=t==="OUT"?"on-out":""; }
+function openEntry(type, entry){
+  state.editing = entry || null;
+  $("#entryTitle").textContent = entry ? "Entry edit karo" : "Nayi Entry";
+  setType(entry ? entry.type : type);
+  $("#fPerson").value = entry ? entry.person : (state.view==="ledger" ? state.person : "");
+  $("#fAmount").value = entry ? entry.amount : "";
+  $("#fDate").value = entry ? entry.date : todayISO();
+  $("#fMode").value = entry ? (entry.mode||"Cash") : "Cash";
+  $("#fNote").value = entry ? (entry.note||"") : "";
+  $("#btnDelete").classList.toggle("hidden", !entry);
+  $("#peopleList").innerHTML = parties().map(p=>`<option value="${esc(p.name)}">`).join("");
+  $("#entryModal").classList.add("show");
+  setTimeout(()=> ($("#fPerson").value ? $("#fAmount") : $("#fPerson")).focus(), 60);
+}
+const closeModal = id => $(id).classList.remove("show");
+
+async function saveEntry(){
+  let person = $("#fPerson").value.trim();
+  const amount = Math.round(parseFloat($("#fAmount").value)*100)/100;
+  const date = $("#fDate").value;
+  if(!person) return toast("Person ka naam daalo");
+  if(!(amount>0)) return toast("Sahi amount daalo");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return toast("Date select karo");
+  // reuse existing spelling of the name (case-insensitive) so ledgers don't split
+  const existing = parties().find(p=>key(p.name)===key(person)); if(existing) person=existing.name;
+  const entry = { person, amount, date, type:state.type, mode:$("#fMode").value, note:$("#fNote").value.trim() };
+  const btn=$("#btnSave"); btn.disabled=true; btn.textContent="Saving…";
+  try{
+    if(state.editing){ entry.id=state.editing.id; await api("update",{entry}); }
+    else { await api("add",{entry}); }
+    closeModal("#entryModal"); toast("Saved ✓");
+    if(state.view==="ledger") state.person = person;
+    await load();
+  }catch(err){ toast(err.message); }
+  finally{ btn.disabled=false; btn.textContent="Save"; }
+}
+async function deleteEntry(){
+  if(!state.editing || !confirm("Yeh entry delete karni hai? Sheet se bhi hat jayegi.")) return;
+  try{ await api("delete",{id:state.editing.id}); closeModal("#entryModal"); toast("Deleted"); await load(); }
+  catch(err){ toast(err.message); }
+}
+
+/* ---------- ledger tools ---------- */
+function downloadCsv(){
+  const rows = ledgerRows();
+  const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
+  const lines = [["Date","Person","Type","Mode","Note","In","Out","Balance","Status"].map(q).join(",")];
+  rows.forEach(r=>{ const b=balLabel(r.run); lines.push([r.date,r.person,r.type,r.mode,r.note,r.type==="IN"?r.amount:"",r.type==="OUT"?r.amount:"",Math.abs(r.run),b.txt].map(q).join(",")); });
+  const blob = new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`Ledger_${state.person.replace(/[^\w]+/g,"_")}_${todayISO()}.csv`; document.body.appendChild(a); a.click(); a.remove();
+}
+async function shareSummary(){
+  const rows=ledgerRows(); let tin=0,tout=0; rows.forEach(r=>r.type==="IN"?tin+=r.amount:tout+=r.amount);
+  const b=balLabel(tout-tin);
+  const text = `${state.person} — Ledger summary (${prettyDate(todayISO())})\nTotal In: ${fmt(tin)}\nTotal Out: ${fmt(tout)}\nBalance: ${b.amt} (${b.txt})`;
+  try{ if(navigator.share){ await navigator.share({text}); return; } }catch(e){ return; }
+  try{ await navigator.clipboard.writeText(text); toast("Summary copy ho gaya"); }catch(e){ prompt("Copy karo:", text); }
+}
+async function renamePerson(){
+  const to = (prompt("Naya naam:", state.person)||"").trim();
+  if(!to || to===state.person) return;
+  try{ await api("rename",{from:state.person,to}); state.person=to; toast("Rename ho gaya"); await load(); }
+  catch(err){ toast(err.message); }
+}
+
+/* ---------- events ---------- */
+$("#btnAddIn").onclick = ()=>openEntry("IN");
+$("#btnAddOut").onclick = ()=>openEntry("OUT");
+$("#segIn").onclick = ()=>setType("IN");
+$("#segOut").onclick = ()=>setType("OUT");
+$("#btnSave").onclick = saveEntry;
+$("#btnCancel").onclick = ()=>closeModal("#entryModal");
+$("#btnDelete").onclick = deleteEntry;
+$("#btnBack").onclick = ()=>{ state.person=null; setView("home"); renderHome(); };
+$("#btnRefresh").onclick = ()=>{ load(); toast("Refreshing…"); };
+$("#btnCsv").onclick = downloadCsv;
+$("#btnPrint").onclick = ()=>window.print();
+$("#btnShare").onclick = shareSummary;
+$("#btnRename").onclick = renamePerson;
+["#period","#sort"].forEach(s=>$(s).addEventListener("change",renderHome));
+$("#search").addEventListener("input",renderHome);
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active"); state.tab=t.dataset.tab; renderHome(); });
+$("#list").addEventListener("click",ev=>{
+  const r=ev.target.closest(".row"); if(!r) return;
+  if(r.dataset.person){ state.person=r.dataset.person; setView("ledger"); renderLedger(); }
+  else if(r.dataset.id){ const e=state.entries.find(x=>x.id===r.dataset.id); if(e) openEntry(e.type,e); }
+});
+$("#ledBody").addEventListener("click",ev=>{ const r=ev.target.closest("tr[data-id]"); if(!r) return; const e=state.entries.find(x=>x.id===r.dataset.id); if(e) openEntry(e.type,e); });
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",ev=>{ if(ev.target===o) o.classList.remove("show"); }));
+document.addEventListener("keydown",ev=>{
+  if(ev.key==="Escape") document.querySelectorAll(".overlay.show").forEach(o=>o.classList.remove("show"));
+  if(ev.key==="Enter" && $("#entryModal").classList.contains("show") && ev.target.tagName!=="TEXTAREA"){ ev.preventDefault(); saveEntry(); }
+});
+
+/* lock */
+async function unlock(){
+  const pin=$("#pinInput").value.trim(); if(!pin) return;
+  state.pin=pin; $("#btnUnlock").disabled=true; $("#lockErr").textContent="";
+  try{ await api("ping"); store.set("khata_pin",pin); setView("home"); await load(); }
+  catch(err){ state.pin=""; $("#lockErr").textContent=err.message; }
+  finally{ $("#btnUnlock").disabled=false; }
+}
+$("#btnUnlock").onclick=unlock;
+$("#pinInput").addEventListener("keydown",e=>{ if(e.key==="Enter") unlock(); });
+
+/* settings */
+$("#btnSettings").onclick=()=>{ $("#sUrl").value=state.url; $("#sPin").value=state.pin; $("#testMsg").textContent=""; $("#settingsModal").classList.add("show"); };
+$("#btnSaveSettings").onclick=async()=>{
+  const url=$("#sUrl").value.trim(), pin=$("#sPin").value.trim();
+  if(url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) { $("#testMsg").textContent="URL '/exec' pe khatam hona chahiye (Web App URL)."; return; }
+  state.url=url; state.pin=pin;
+  url ? store.set("khata_url",url) : store.del("khata_url");
+  pin ? store.set("khata_pin",pin) : store.del("khata_pin");
+  demoData=null; closeModal("#settingsModal");
+  if(!isDemo() && !state.pin) return showLock();
+  setView("home"); await load();
+};
+$("#btnTest").onclick=async()=>{
+  const prev={url:state.url,pin:state.pin}; state.url=$("#sUrl").value.trim(); state.pin=$("#sPin").value.trim();
+  $("#testMsg").textContent="Testing…";
+  try{ await api("ping"); $("#testMsg").textContent = isDemo() ? "Demo mode (URL khali hai)" : "✓ Connected"; }
+  catch(err){ $("#testMsg").textContent="✗ "+err.message; }
+  finally{ state.url=prev.url; state.pin=prev.pin; }
+};
+$("#btnLogout").onclick=()=>{ store.del("khata_pin"); state.pin=""; state.entries=[]; closeModal("#settingsModal"); if(isDemo()){ setView("home"); load(); } else showLock(); };
+
+/* boot */
+if(!isDemo() && !state.pin) showLock();
+else { setView("home"); load(); }
+})();
+</script>
+</body>
+</html>
