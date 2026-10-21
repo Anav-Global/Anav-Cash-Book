@@ -1,27 +1,28 @@
 /**
- * Cash Khata — Google Sheets backend (Apps Script Web App)
- * Tumhari existing "Cash Flow" sheet ke saath kaam karta hai:
- *   Date | Name | Cash In | Cash Out   (yeh columns waise hi rahenge)
- * Script right side me 3 naye columns jodega: Mode | Note | ID
- * (ID se app edit/delete karta hai — ID column ko delete ya edit mat karna.)
+ * Cash Book — Google Sheets backend (Apps Script Web App)
+ * Works with the existing "Cash Flow" sheet:
+ *   Date | Name | Cash In | Cash Out   (these columns are left unchanged)
+ * On first run the script adds three columns on the right: Mode | Note | ID
+ * (The app uses the ID column to edit and delete rows — do not edit or delete it.)
  *
- * SETUP:
- * 1. Google Sheet → Extensions → Apps Script → yeh code Code.gs me paste karo
- * 2. APP_PIN badlo (8+ characters)
- * 3. Upar function dropdown se "testSetup" chuno → Run → permission allow karo
+ * SETUP
+ * 1. Open the Google Sheet → Extensions → Apps Script → paste this code into Code.gs
+ * 2. Change APP_PIN below (use at least 8 characters)
+ * 3. Select "testSetup" in the function drop-down → Run → grant the requested permissions
  * 4. Deploy → New deployment → Web app
  *      Execute as: Me      Who has access: Anyone
- * 5. "/exec" wala URL config.js me ya app ke ⚙ Settings me daalo
+ * 5. Copy the Web App URL (ends in "/exec") into config.js or the app's ⚙ Settings
  *
- * Code badlo to: Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy
+ * After any code change: Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy
+ * (This keeps the same URL. "New deployment" would create a new URL.)
  */
 
 const SPREADSHEET_ID = '1_MO-WUtcTXKbeSqi5ZQZcgIUnxZoqc0JICi9PnlcTqE';
-const SHEET_NAME = 'Cash Flow';          // tab ka naam; na mile to pehli tab use hogi
-const APP_PIN = 'CHANGE_ME_123456';      // <-- ZAROOR BADLO
-const TEXT_DATE_FORMAT = 'DD/MM/YYYY';   // sirf tab use hota hai jab date cell me TEXT ho; 'MM/DD/YYYY' bhi chalega
+const SHEET_NAME = 'Cash Flow';          // tab name; the first tab is used if not found
+const APP_PIN = 'CHANGE_ME_123456';      // <-- CHANGE THIS
+const TEXT_DATE_FORMAT = 'DD/MM/YYYY';   // used only when a date cell contains text; 'MM/DD/YYYY' is also supported
 
-// Header names (case/space ignore). Column order kuch bhi ho, naam se dhoondha jata hai.
+// Header names (case and extra spaces are ignored). Columns are found by name, so their order does not matter.
 const COLS = {
   date:   ['date', 'tarikh'],
   person: ['name', 'person', 'party'],
@@ -46,7 +47,7 @@ function doPost(e) {
 function route(p) {
   if (!p.pin || String(p.pin) !== APP_PIN) {
     Utilities.sleep(800);
-    return { ok: false, error: 'Galat PIN' };
+    return { ok: false, error: 'Incorrect PIN' };
   }
   try {
     switch (p.action) {
@@ -79,7 +80,7 @@ function getSheet() {
   return (SHEET_NAME && ss.getSheetByName(SHEET_NAME)) || ss.getSheets()[0];
 }
 
-// Header row padh ke column numbers nikalta hai; Mode/Note/ID na ho to jod deta hai.
+// Reads the header row to locate columns; adds Mode/Note/ID if they are missing.
 function getMap(sh) {
   if (sh.getLastRow() === 0) {
     sh.getRange(1, 1, 1, 4).setValues([['Date', 'Name', 'Cash In', 'Cash Out']]).setFontWeight('bold');
@@ -96,7 +97,7 @@ function getMap(sh) {
     }
   });
   ['date', 'person', 'in', 'out'].forEach(function (k) {
-    if (!map[k]) throw new Error('Sheet ki pehli row me "' + COLS[k][0] + '" column nahi mila');
+    if (!map[k]) throw new Error('Column "' + COLS[k][0] + '" was not found in the first row of the sheet');
   });
   let next = lastCol;
   ['mode', 'note', 'id'].forEach(function (k) {
@@ -142,7 +143,7 @@ function parseDate(v, tz) {
   return '';
 }
 
-// Noon pe date banate hain taaki timezone ki wajah se din na khiske
+// Dates are created at noon so that time-zone differences cannot shift the day
 function toDate(iso) {
   const p = iso.split('-');
   return new Date(+p[0], +p[1] - 1, +p[2], 12, 0, 0);
@@ -163,15 +164,15 @@ function clean(e) {
   const type = String(e.type || '').toUpperCase();
   const amount = Math.round(Number(e.amount) * 100) / 100;
   const date = String(e.date || '').trim();
-  if (!person) throw new Error('Person ka naam zaroori hai');
-  if (type !== 'IN' && type !== 'OUT') throw new Error('Type IN ya OUT hona chahiye');
-  if (!(amount > 0)) throw new Error('Amount 0 se zyada hona chahiye');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Date galat format me hai');
+  if (!person) throw new Error('Name is required');
+  if (type !== 'IN' && type !== 'OUT') throw new Error('Type must be IN or OUT');
+  if (!(amount > 0)) throw new Error('Amount must be greater than 0');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid date format');
   return { person: person.slice(0, 120), type: type, amount: amount, date: date,
            mode: String(e.mode || 'Cash').slice(0, 30), note: String(e.note || '').slice(0, 500) };
 }
 
-// id format: "<rowId>" ya "<rowId>|IN" / "<rowId>|OUT" (jab ek hi row me In aur Out dono bhare ho)
+// id format: "<rowId>", or "<rowId>|IN" / "<rowId>|OUT" when one row has both Cash In and Cash Out filled
 function splitId(id) {
   const s = String(id || '');
   const i = s.lastIndexOf('|');
@@ -200,13 +201,13 @@ function listEntries() {
     const g = function (k) { return r[map[k] - 1]; };
     const person = unsafeText(g('person')).replace(/\s+/g, ' ').trim();
     const ain = num(g('in')), aout = num(g('out'));
-    if (!person && !ain && !aout) return;            // khali row
+    if (!person && !ain && !aout) return;            // blank row
     let id = String(g('id') || '').trim();
     if (!id) { id = Utilities.getUuid(); idCol[i][0] = id; idsChanged = true; }
     const both = ain > 0 && aout > 0;
     const base = {
       date: parseDate(g('date'), tz),
-      person: person || '(Bina naam)',
+      person: person || '(No name)',
       mode: String(g('mode') || ''),
       note: unsafeText(g('note')),
       createdAt: 'r' + ('000000' + (i + 2)).slice(-7)  // same-day order = sheet row order
@@ -244,8 +245,8 @@ function updateEntry(e) {
   const map = getMap(sh);
   const s = splitId(e && e.id);
   const row = findRow(sh, map, s.row);
-  if (row < 0) throw new Error('Entry nahi mili (shayad Sheet me delete ho gayi) — Refresh karo');
-  if (s.part) throw new Error('Is row me Cash In aur Cash Out dono bhare hain — ise Sheet me hi edit karo');
+  if (row < 0) throw new Error('Entry not found (it may have been deleted in the Sheet) — please refresh');
+  if (s.part) throw new Error('This row has both Cash In and Cash Out filled — please edit it directly in the Sheet');
   sh.getRange(row, map.date).setValue(toDate(c.date));
   sh.getRange(row, map.person).setValue(safeText(c.person, 120));
   sh.getRange(row, map.in).setValue(c.type === 'IN' ? c.amount : '');
@@ -260,7 +261,7 @@ function deleteEntry(id) {
   const map = getMap(sh);
   const s = splitId(id);
   const row = findRow(sh, map, s.row);
-  if (row < 0) throw new Error('Entry nahi mili — Refresh karo');
+  if (row < 0) throw new Error('Entry not found — please refresh');
   if (s.part === 'IN')  { sh.getRange(row, map.in).clearContent();  return true; }
   if (s.part === 'OUT') { sh.getRange(row, map.out).clearContent(); return true; }
   sh.deleteRow(row);
@@ -270,7 +271,7 @@ function deleteEntry(id) {
 function renamePerson(from, to) {
   from = String(from || '').replace(/\s+/g, ' ').trim().toLowerCase();
   to = String(to || '').trim().slice(0, 120);
-  if (!from || !to) throw new Error('Naam khali nahi ho sakta');
+  if (!from || !to) throw new Error('Name cannot be blank');
   const sh = getSheet();
   const map = getMap(sh);
   const n = sh.getLastRow() - 1;
@@ -287,7 +288,7 @@ function renamePerson(from, to) {
   return count;
 }
 
-/* Editor se ek baar Run karo: columns check + IDs fill + dates kaise padhi gayi woh Log me dikhega */
+/* Run once from the editor: checks the columns, fills missing IDs and logs how the dates were read */
 function testSetup() {
   const list = listEntries();
   Logger.log('OK — tab "' + getSheet().getName() + '", entries: ' + list.length);

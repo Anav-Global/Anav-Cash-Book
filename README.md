@@ -1,52 +1,78 @@
-# Cash Khata
+# Balance — Cash Book
 
-Khata Book jaisi cash inward / outward app. Frontend GitHub Pages par, data Google Sheet me (Apps Script Web App ke through).
+A simple cash book web app for recording cash in and cash out, with a separate ledger for every party.
+The app runs in the browser (and can be installed on a phone or computer), and all data is stored in a Google Sheet.
+
+## Features
+- Record **Cash In** and **Cash Out** entries with date, payment mode and note
+- **Party list** with each party's running balance ("To Receive" / "To Pay")
+- **Party ledger** with date-wise entries and running balance; export to CSV, print / save as PDF, or share a summary
+- **Opening balance** per party
+- Summary of Cash In, Cash Out and Net for: all time, today, this month, last month, current financial year
+- Edit, delete and rename — every change is written to the Google Sheet immediately
+- **Installable app** (Android, iPhone, Windows, Mac) via the **⬇ App** button
+- PIN-protected access
 
 ## Files
-| File | Kaam |
+| File | Purpose |
 |---|---|
-| `index.html` | Poori app (UI + logic) |
-| `config.js` | Apps Script URL yahan daalo |
-| `apps-script/Code.gs` | Google Sheet backend — Apps Script me paste karna hai, GitHub pe chalne wala nahi |
-| `.nojekyll` | GitHub Pages ke liye |
+| `index.html` | The app |
+| `config.js` | Settings: Apps Script URL, app name, currency, balance labels, financial year |
+| `manifest.json`, `sw.js`, `icons/` | Make the app installable — keep them in the root folder |
+| `apps-script/Code.gs` | Google Sheet backend — paste into Apps Script (not run from the website) |
 
-## Step 1 — Google Sheet backend
-1. Sheet kholo → **Extensions → Apps Script**
-2. `apps-script/Code.gs` ka poora code paste karo
-3. `APP_PIN` badlo — 4-digit mat rakho, kam se kam 6–8 characters
-4. Editor me `testSetup` function run karo → permission allow karo → "Transactions" tab ban jayega
-5. **Deploy → New deployment → Web app**
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-6. `/exec` se khatam hone wala URL copy karo
+## 1. Set up the Google Sheet backend
+1. Open the Google Sheet → **Extensions → Apps Script**.
+2. Replace the contents of `Code.gs` with `apps-script/Code.gs` from this package.
+3. Change `APP_PIN` to a PIN of at least 8 characters. **Change it only in the Apps Script editor — never commit the real PIN to GitHub.**
+4. Select `testSetup` in the function drop-down and click **Run**. Grant the requested permissions (choose *Advanced → Go to project* if Google shows an "unverified app" warning — this is expected for your own script).
+5. **Deploy → New deployment → Web app**, with *Execute as: Me* and *Who has access: Anyone*.
+6. Copy the Web App URL (it ends in `/exec`).
 
-> Code me baad me koi change kiya to **Manage deployments → Edit → New version** karna padega.
+**Updating the script later:** Deploy → Manage deployments → Edit (pencil) → Version: **New version** → Deploy. This keeps the same URL.
 
-## Step 2 — GitHub Pages
-1. `config.js` me `API_URL` me woh `/exec` URL paste karo (ya baad me app ke ⚙ Settings me daal sakte ho)
-2. GitHub pe nayi repo banao, saari files upload karo (`apps-script` folder optional hai)
-3. **Settings → Pages → Source: Deploy from a branch → main / (root)** → Save
-4. 1–2 minute me `https://<username>.github.io/<repo>/` pe app live
+## 2. Configure and publish the website
+1. In `config.js`, set `API_URL` to the Web App URL. Adjust `APP_NAME`, `CURRENCY`, `BALANCE_STYLE` and `FY_START_MONTH` if required.
+2. Upload all files (including the `icons` and `apps-script` folders) to the root of the GitHub repository.
+3. Hosting:
+   - **Vercel:** import the repository, Application Preset **Other**, Root Directory `./`, no build settings. Each commit redeploys automatically.
+   - **GitHub Pages:** Settings → Pages → Deploy from a branch → `main` / root.
+4. Open the site and press **Ctrl + Shift + R** once to load the latest version.
 
-PIN app me pehli baar khulne pe poochha jayega (repo me save nahi hota).
+## Google Sheet layout
+The app uses the **Cash Flow** tab with the columns `Date | Name | Cash In | Cash Out`.
+On first use, the script adds **Mode | Note | ID** to the right and fills an ID for every existing row.
 
-## Sheet structure
-App tumhari existing **"Cash Flow"** tab hi use karta hai: `Date | Name | Cash In | Cash Out`.
-Pehli baar chalne par script right side me **Mode | Note | ID** columns jodta hai aur purani rows me ID bhar deta hai.
+- Columns are found by their header name, so their order can be changed — keep the header names the same.
+- **Do not edit or delete the ID column.** The app uses it to identify rows.
+- Rows can also be added directly in the Sheet; they appear in the app after pressing **⟳ Refresh**.
+- If a row has both Cash In and Cash Out filled, the app shows it as two entries; such rows must be edited in the Sheet.
 
-- Columns naam se dhoondhe jaate hain, order badlo to bhi chalega — bas header ke naam same rakhna
-- **ID column ko edit/delete mat karna** — app usi se row pehchanta hai
-- Sheet me seedha nayi row likh sakte ho; agli Refresh pe app use utha lega (ID khud bhar jayegi)
-- Date cell agar real date hai to koi dikkat nahi. Agar text hai to `TEXT_DATE_FORMAT` (Code.gs) se padhi jaati hai
-- Ek hi row me Cash In aur Cash Out dono bhare ho to app me woh do entries dikhengi, par unhe edit Sheet me hi karna hoga
+## Balances
+- **Home summary:** Net = Cash In − Cash Out for the selected period.
+- **Party balance:** Cash Out − Cash In (plus opening balance).
+  Positive = **To Receive** (you paid them more than you received); negative = **To Pay**.
+  Set `BALANCE_STYLE: "cashflow"` to show **Net Paid / Net Received** instead.
+- Party balances are always all-time; the period filter applies to the summary and the *All Entries* tab.
 
-## Balance logic
-- Home summary: **Net = Cash In − Cash Out** (selected period ke liye)
-- Person balance: **Out − In**. Positive = "Lena hai" (aapne zyada diya), negative = "Dena hai" (aapne zyada liya)
-- Party list ka balance hamesha all-time hota hai; period filter sirf summary aur "All Entries" tab pe lagta hai
+## Opening balance
+- In a party's ledger, use **⊕ Opening balance**, or use **"Add an opening balance instead"** in the new-entry form.
+- It is saved as a normal row with **Mode = Opening** ("To Receive" → Cash Out column, "To Pay" → Cash In column).
+- It is included in the party's balance and shown at the top of the ledger, but is **excluded from the Cash In / Cash Out totals** in the app.
+- If you total the Sheet columns yourself, exclude opening rows, for example: `=SUMIFS(C:C, E:E, "<>Opening")` (C = Cash In; use D for Cash Out; E = Mode).
+
+## Using the app on a phone
+- **Back button** (Android) closes an open form first, then returns from a ledger to the home screen — it does not exit the app.
+- **Pull down** on the home screen or a ledger to refresh from the Google Sheet. Data also refreshes automatically when the app is reopened after 30 seconds or more.
+- Ledgers are shown as cards on phones (newest first) and as a table on larger screens and in print.
+- Ledger actions (CSV, Print / PDF, Share summary, Opening balance, Rename) scroll sideways.
+
+## Installing the app
+- **Android / Windows / Mac (Chrome or Edge):** tap **⬇ App** → Install.
+- **iPhone / iPad:** open the site in **Safari**, tap **⬇ App** and follow the steps (Share → Add to Home Screen).
+- The installed app still needs an internet connection to read and save data.
 
 ## Limitations
-- Apps Script URL public hai — security sirf PIN pe hai. Strong PIN rakho.
-- Har request ~1–3 sec leti hai (Apps Script cold start). Offline kaam nahi karta.
-- Ek hi tab; kuch hazaar rows tak theek chalega, bahut badi sheet pe har refresh slow hoga.
-- `config.js` me `BALANCE_STYLE: "cashflow"` karo to "Lena/Dena" ki jagah "Net diya / Net mila" dikhega.
+- The Apps Script URL is public; access is protected only by the PIN. Use a strong PIN.
+- Each request takes about 1–3 seconds (Apps Script start-up time). The app does not work offline.
+- Designed for a single tab with up to a few thousand rows; very large sheets will make each refresh slower.

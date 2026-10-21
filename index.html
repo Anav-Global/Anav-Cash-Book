@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b2545">
-<title>Cash Khata</title>
+<title>Balance</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Balance">
 <script src="config.js"></script>
 <style>
 :root{
@@ -22,10 +29,15 @@
 html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
 .app{max-width:760px;margin:0 auto;min-height:100vh;padding-bottom:110px}
-header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:16px;border-bottom:3px solid var(--gold);display:flex;align-items:center;gap:10px}
+header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:calc(14px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 14px max(16px, env(safe-area-inset-left));border-bottom:3px solid var(--gold);display:flex;align-items:center;gap:10px}
 header.top h1{font-size:22px;letter-spacing:.3px;color:var(--gold);margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .icon-btn{background:rgba(255,255,255,.1);border:1px solid rgba(201,162,39,.45);color:var(--gold);border-radius:10px;padding:9px 13px;cursor:pointer;font-size:18px}
 .icon-btn:hover{background:rgba(201,162,39,.18)}
+.install-btn{background:var(--gold);color:var(--brand);font-weight:800;font-size:15px;border-color:var(--gold)}
+.install-btn:hover{background:#e0bb3f}
+.steps{margin:0 0 14px;padding-left:22px;line-height:1.7}
+.steps b{color:var(--brand-2)}
+@media (prefers-color-scheme: dark){.steps b{color:var(--gold)}}
 .banner{background:var(--gold-soft);color:var(--gold-ink);padding:8px 16px;font-size:13px}
 
 .wrap{padding:14px 16px}
@@ -67,11 +79,18 @@ table.led th{font-size:14px;color:var(--gold);font-weight:700;text-align:left;pa
 table.led td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 table.led tr.click{cursor:pointer}
 table.led tr.click:hover td{background:color-mix(in srgb,var(--brand) 5%,transparent)}
+table.led tr.open-row td{background:var(--gold-soft)}
+.open-tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--gold);color:var(--brand)}
+.linkbtn{background:none;border:0;padding:0;margin:-2px 0 14px;color:var(--brand-2);font-weight:700;font-size:15px;text-decoration:underline;cursor:pointer}
+@media (prefers-color-scheme: dark){.linkbtn{color:var(--gold)}}
+.hint{font-size:14px;color:var(--muted);background:var(--gold-soft);border-radius:10px;padding:10px 12px;margin:-4px 0 14px}
 table.led .num{text-align:right;white-space:nowrap}
 td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
 .tbl-wrap{border-radius:var(--r);overflow:auto;border:1px solid var(--line);box-shadow:var(--shadow)}
 .chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;background:var(--gold-soft);color:var(--gold-ink);margin-left:4px}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.actions{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin:12px -16px;padding:2px 16px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.actions::-webkit-scrollbar{display:none}
+.actions .btn{flex:none;white-space:nowrap;padding:11px 15px;font-size:15px}
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
 .overlay.show{display:flex}
@@ -96,11 +115,45 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
 .loading{padding:30px;text-align:center;color:var(--muted)}
 .hidden{display:none!important}
 @media print{
-  header.top,.fab-bar,.actions,.banner,.toolbar,.tabs,#btnBack{display:none!important}
+  header.top,.fab-bar,.actions,.banner,.toolbar,.tabs,#btnBack,.led-cards,.ptr,.led-hint{display:none!important}
+  .tbl-wrap{display:block!important}
   body{background:#fff;color:#000} .app{padding:0}
   .tbl-wrap,.bal-box,.stat{box-shadow:none}
 }
-@media (max-width:480px){ .stat .val{font-size:18px} .stat{padding:12px} .stat .lbl{font-size:12.5px} table.led{font-size:14.5px} table.led td,table.led th{padding:9px 6px} .name{font-size:17px} .amt{font-size:17px} }
+@media (max-width:480px){ .stat .val{font-size:clamp(13px,3.9vw,18px);white-space:nowrap} .stat{padding:12px 10px} .stat .lbl{font-size:12.5px} table.led{font-size:14.5px} table.led td,table.led th{padding:9px 6px} .name{font-size:17px} .amt{font-size:17px} }
+/* ---------- phone ---------- */
+html{-webkit-text-size-adjust:100%}
+button,.row,.tab,.lcard,select,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.row:active,.lcard:active{background:color-mix(in srgb,var(--gold) 14%,transparent)}
+.btn:active,.icon-btn:active,.tab:active{transform:scale(.97)}
+body{overscroll-behavior-y:contain}
+.toolbar input[type=search]{flex:1.7;min-width:0}
+.toolbar select{min-width:0}
+.bal-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:10px 14px;align-items:end}
+.bal-total{grid-column:1/-1;border-top:1px dashed var(--line);padding-top:10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.led-cards{display:none;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.lcard{display:flex;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line);cursor:pointer;align-items:flex-start}
+.lcard:last-child{border-bottom:0}
+.lcard.open-row{background:var(--gold-soft)}
+.lcard .ico{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:17px}
+.lcard .ico.i-in{background:var(--in-bg);color:var(--in)} .lcard .ico.i-out{background:var(--out-bg);color:var(--out)}
+.lcard .ico.i-op{background:var(--gold);color:var(--brand)}
+.lcard .l-main{flex:1;min-width:0}
+.lcard .l-note{font-weight:600;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lcard .l-right{text-align:right;white-space:nowrap}
+.lcard .l-amt{font-weight:800;font-size:17px}
+.ptr{height:0;overflow:hidden;text-align:center;color:var(--muted);font-size:14px;font-weight:600;transition:height .15s}
+.ptr.show{height:40px;line-height:40px}
+.sheet-actions{position:sticky;bottom:0;background:var(--card);padding:10px 0 0;z-index:1}
+@media (max-width:640px){
+  .tbl-wrap{display:none}
+  .led-cards{display:block}
+  .ledger-head .avatar{width:50px;height:50px;font-size:19px}
+  #ledName{font-size:20px!important}
+  .sheet{max-height:94vh}
+  header.top h1{font-size:20px}
+  .install-btn{font-size:14px;padding:8px 10px}
+}
 </style>
 </head>
 <body>
@@ -108,29 +161,31 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
   <header class="top">
     <button class="icon-btn hidden" id="btnBack" aria-label="Back">←</button>
     <h1 id="title">Cash Khata</h1>
+    <button class="icon-btn install-btn hidden" id="btnInstall" title="Install app">⬇ App</button>
     <button class="icon-btn" id="btnRefresh" title="Refresh">⟳</button>
     <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
   </header>
-  <div class="banner hidden" id="demoBanner">Preview — tumhari Sheet ki 4 rows ki copy hai, yahan kuch save nahi hoga. ⚙ Settings me Apps Script URL daalo.</div>
+  <div class="banner hidden" id="demoBanner">Demo mode — sample data only; nothing is saved. Add your Apps Script URL in ⚙ Settings to connect your Google Sheet.</div>
 
   <!-- Lock screen -->
   <section id="lockView" class="lock hidden">
-    <h2>🔒 PIN daalo</h2>
-    <div class="sub">Apps Script me jo APP_PIN set kiya hai</div>
-    <input id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••">
+    <h2>🔒 Enter PIN</h2>
+    <div class="sub">The APP_PIN set in your Apps Script</div>
+    <input id="pinInput" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="••••••••">
     <button class="btn btn-brand" style="width:100%" id="btnUnlock">Open</button>
     <div class="sub" id="lockErr" style="color:var(--out);margin-top:10px"></div>
   </section>
 
   <!-- Home -->
+  <div class="ptr" id="ptr">↓ Pull to refresh</div>
   <section id="homeView" class="wrap hidden">
     <div class="toolbar" style="margin-top:0">
       <select id="period">
         <option value="all">All time</option>
-        <option value="today">Aaj</option>
-        <option value="month">Is mahine</option>
-        <option value="lastmonth">Pichhle mahine</option>
-        <option value="fy">Current FY (Apr–Mar)</option>
+        <option value="today">Today</option>
+        <option value="month">This month</option>
+        <option value="lastmonth">Last month</option>
+        <option value="fy" id="fyOption">Current financial year</option>
       </select>
     </div>
     <div class="summary">
@@ -143,11 +198,11 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
       <button class="tab" data-tab="entries">All Entries</button>
     </div>
     <div class="toolbar">
-      <input id="search" type="search" placeholder="Search naam / note…">
+      <input id="search" type="search" placeholder="Search…" enterkeyhint="search">
       <select id="sort">
-        <option value="recent">Recent pehle</option>
-        <option value="name">Naam (A–Z)</option>
-        <option value="bal">Balance (bada pehle)</option>
+        <option value="recent">Most recent</option>
+        <option value="name">Name (A–Z)</option>
+        <option value="bal">Largest balance</option>
       </select>
     </div>
     <div class="list" id="list"><div class="loading">Loading…</div></div>
@@ -163,23 +218,26 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
       </div>
     </div>
     <div class="bal-box">
+      <div id="ledOpenWrap" class="hidden"><div class="sub">Opening</div><div style="font-weight:700" id="ledOpen"></div></div>
       <div><div class="sub">Total In</div><div class="in" style="font-weight:700" id="ledIn"></div></div>
       <div><div class="sub">Total Out</div><div class="out" style="font-weight:700" id="ledOut"></div></div>
-      <div style="text-align:right"><div class="sub">Balance</div><div style="font-weight:800;font-size:22px" id="ledBal"></div></div>
+      <div class="bal-total"><div class="sub" style="font-size:15px;font-weight:700">Balance</div><div style="font-weight:800;font-size:22px" id="ledBal"></div></div>
     </div>
     <div class="actions">
       <button class="btn btn-ghost" id="btnCsv">⬇ CSV</button>
       <button class="btn btn-ghost" id="btnPrint">🖨 Print / PDF</button>
       <button class="btn btn-ghost" id="btnShare">📤 Share summary</button>
+      <button class="btn btn-ghost" id="btnOpening">⊕ Opening balance</button>
       <button class="btn btn-ghost" id="btnRename">✎ Rename</button>
     </div>
+    <div class="led-cards" id="ledCards"></div>
     <div class="tbl-wrap">
       <table class="led">
         <thead><tr><th>Date</th><th>Details</th><th class="num">In ↓</th><th class="num">Out ↑</th><th class="num">Balance</th></tr></thead>
         <tbody id="ledBody"></tbody>
       </table>
     </div>
-    <div class="sub" style="margin-top:8px">Row pe click karke entry edit / delete kar sakte ho.</div>
+    <div class="sub led-hint" style="margin-top:8px">Tap any entry to edit or delete it.</div>
   </section>
 </div>
 
@@ -193,23 +251,25 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
 <!-- Entry modal -->
 <div class="overlay" id="entryModal">
   <div class="sheet">
-    <h2 id="entryTitle">Nayi Entry</h2>
+    <h2 id="entryTitle">New Entry</h2>
     <div class="seg">
       <button type="button" id="segIn">↓ Cash In</button>
       <button type="button" id="segOut">↑ Cash Out</button>
     </div>
+    <div class="hint hidden" id="openHint">An opening balance is the amount carried forward before you started using this app. It is added to the party’s balance but is not counted in the Cash In / Cash Out totals.</div>
+    <button type="button" class="linkbtn" id="toggleOpening">⊕ Add an opening balance instead</button>
     <div class="field"><label>Person / Party</label>
-      <input id="fPerson" list="peopleList" autocomplete="off" placeholder="Naam likho ya select karo">
+      <input id="fPerson" list="peopleList" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="Type a name or pick from the list">
       <datalist id="peopleList"></datalist>
     </div>
     <div class="two">
-      <div class="field"><label>Amount</label><input id="fAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+      <div class="field"><label>Amount</label><input id="fAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" enterkeyhint="done"></div>
       <div class="field"><label>Date</label><input id="fDate" type="date"></div>
     </div>
-    <div class="field"><label>Mode</label>
+    <div class="field" id="modeField"><label>Mode</label>
       <select id="fMode"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option><option>Other</option></select>
     </div>
-    <div class="field"><label>Note (optional)</label><textarea id="fNote" rows="2" placeholder="Kis cheez ka payment…"></textarea></div>
+    <div class="field"><label>Note (optional)</label><textarea id="fNote" rows="2" placeholder="What is this payment for?"></textarea></div>
     <div class="sheet-actions">
       <button class="btn btn-del hidden" id="btnDelete">Delete</button>
       <button class="btn btn-ghost" id="btnCancel">Cancel</button>
@@ -224,14 +284,42 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
     <h2>Settings</h2>
     <div class="field"><label>Apps Script Web App URL</label>
       <input id="sUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
-    <div class="field"><label>PIN</label><input id="sPin" type="password" placeholder="APP_PIN"></div>
-    <div class="sub" style="margin-bottom:12px">URL khali = Demo mode. Yeh settings sirf is browser me save hoti hain.</div>
+    <div class="field"><label>PIN</label><input id="sPin" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="APP_PIN"></div>
+    <div class="sub" style="margin-bottom:12px">Leave the URL blank to use demo mode. These settings are saved in this browser only.</div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="btnTest">Test</button>
       <button class="btn btn-ghost" id="btnLogout">Logout</button>
       <button class="btn btn-brand" id="btnSaveSettings">Save</button>
     </div>
     <div class="sub" id="testMsg" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- Install help modal -->
+<div class="overlay" id="installModal">
+  <div class="sheet">
+    <h2>📲 Install the app</h2>
+    <div id="installIOS" class="hidden">
+      <div class="sub" style="margin-bottom:8px">iPhone / iPad (open this page in Safari):</div>
+      <ol class="steps">
+        <li>Tap the <b>Share</b> button (the square with the ⬆ arrow)</li>
+        <li>Scroll down and choose <b>Add to Home Screen</b></li>
+        <li>Tap <b>Add</b> in the top-right corner</li>
+      </ol>
+    </div>
+    <div id="installOther">
+      <div class="sub" style="margin-bottom:8px">Android (Chrome):</div>
+      <ol class="steps">
+        <li>Tap the <b>⋮</b> menu in the top-right corner</li>
+        <li>Choose <b>Install app</b> or <b>Add to Home screen</b></li>
+      </ol>
+      <div class="sub" style="margin-bottom:8px">Computer (Chrome / Edge):</div>
+      <ol class="steps">
+        <li>Click the <b>install icon</b> (🖥⬇) at the right end of the address bar</li>
+        <li>Or open the menu <b>⋮ → Cast, save and share → Install page as app</b></li>
+      </ol>
+    </div>
+    <div class="sheet-actions"><button class="btn btn-brand" id="btnInstallClose">Got it</button></div>
   </div>
 </div>
 
@@ -262,30 +350,34 @@ const state = {
   type: "IN"
 };
 const isDemo = () => !state.url;
+const FY_START = Math.min(12, Math.max(1, parseInt(CFG.FY_START_MONTH,10) || 4));
+(function(){ const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const o=document.getElementById("fyOption"); if(o) o.textContent = FY_START===1 ? "Current year (Jan–Dec)" : `Current FY (${M[FY_START-1]}–${M[(FY_START+10)%12]})`; })();
+const isOpening = e => /^opening/i.test(String((e && e.mode) || "").trim());
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const fmt = n => CUR + (CUR.length>1?" ":"") + Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmt = n => CUR + (CUR.length>1?"\u00a0":"") + Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:0,maximumFractionDigits:2});
 const todayISO = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const prettyDate = iso => { if(!iso) return ""; const [y,m,d]=iso.split("-"); const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]||m; return `${+d} ${mn} ${y}`; };
 const initials = n => String(n).trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase() || "?";
 const key = n => String(n).trim().toLowerCase();
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2600); }
 
-/* Balance convention (Khata style): per person, Out − In.
-   > 0  => aapne zyada diya  => "Lena hai" (unse lena baaki)
-   < 0  => aapne zyada liya  => "Dena hai" (unhe dena baaki) */
+/* Balance convention: per party, Out − In.
+   > 0  => you paid them more than you received  => "To Receive"
+   < 0  => you received more than you paid them  => "To Pay" */
 const CASHFLOW = String(CFG.BALANCE_STYLE||"khata").toLowerCase()==="cashflow";
 function balLabel(b){
   if (Math.abs(b) < 0.005) return {txt:"Settled", cls:"", amt:fmt(0)};
-  if (CASHFLOW) return b > 0 ? {txt:"Net diya", cls:"out", amt:fmt(b)} : {txt:"Net mila", cls:"in", amt:fmt(-b)};
-  return b > 0 ? {txt:"Lena hai", cls:"out", amt:fmt(b)} : {txt:"Dena hai", cls:"in", amt:fmt(-b)};
+  if (CASHFLOW) return b > 0 ? {txt:"Net Paid", cls:"out", amt:fmt(b)} : {txt:"Net Received", cls:"in", amt:fmt(-b)};
+  return b > 0 ? {txt:"To Receive", cls:"out", amt:fmt(b)} : {txt:"To Pay", cls:"in", amt:fmt(-b)};
 }
 
 /* ---------- API ---------- */
 let demoData = null;
 function seedDemo(){
-  // Preview ke liye tumhari "Cash Flow" sheet ki rows (dates DD/MM maan ke)
+  // Sample data shown in demo mode
   let i=0; const e=(date,person,type,amount)=>({id:"demo"+(++i),date,person,type,amount,mode:"",note:"",createdAt:"r"+String(i).padStart(7,"0")});
   return [
     e("2026-01-01","Raj","OUT",5000),
@@ -310,8 +402,8 @@ async function api(action,payload={}){
   let res;
   try{
     res = await fetch(state.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,pin:state.pin,...payload}),redirect:"follow"});
-  }catch(err){ throw new Error("Network error — URL / internet check karo"); }
-  let j; try{ j = await res.json(); }catch(e){ throw new Error("Server ne JSON nahi diya — deployment access 'Anyone' hai?"); }
+  }catch(err){ throw new Error("Network error — please check the URL and your internet connection"); }
+  let j; try{ j = await res.json(); }catch(e){ throw new Error("Unexpected server response — make sure the Apps Script deployment access is set to 'Anyone'"); }
   if(!j.ok) throw new Error(j.error || "Server error");
   return j.data;
 }
@@ -324,10 +416,17 @@ function inPeriod(iso){
   if(p==="today") return iso===todayISO();
   if(p==="month") return iso.slice(0,7)===`${y}-${pad(m+1)}`;
   if(p==="lastmonth"){ const d=new Date(y,m-1,1); return iso.slice(0,7)===`${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
-  if(p==="fy"){ const fy = m>=3 ? y : y-1; return iso>=`${fy}-04-01` && iso<=`${fy+1}-03-31`; }
+  if(p==="fy"){
+    const s = FY_START;                                   // 1–12
+    const startY = (m+1) >= s ? y : y-1;
+    const start = `${startY}-${pad(s)}-01`;
+    const endD = new Date(startY+1, s-1, 0);              // last day before next FY start
+    const end = `${endD.getFullYear()}-${pad(endD.getMonth()+1)}-${pad(endD.getDate())}`;
+    return iso>=start && iso<=end;
+  }
   return true;
 }
-const sortEntries = arr => arr.slice().sort((a,b)=> a.date===b.date ? String(a.createdAt).localeCompare(String(b.createdAt)) : a.date.localeCompare(b.date));
+const sortEntries = arr => arr.slice().sort((a,b)=> a.date===b.date ? (isOpening(b)-isOpening(a)) || String(a.createdAt).localeCompare(String(b.createdAt)) : a.date.localeCompare(b.date));
 
 function parties(){
   const map = new Map();
@@ -357,7 +456,7 @@ function setView(v){
 
 function renderHome(){
   const filtered = state.entries.filter(e=>inPeriod(e.date));
-  let tin=0,tout=0; filtered.forEach(e=> e.type==="IN" ? tin+=e.amount : tout+=e.amount);
+  let tin=0,tout=0; filtered.forEach(e=>{ if(isOpening(e)) return; e.type==="IN" ? tin+=e.amount : tout+=e.amount; });
   $("#sumIn").textContent=fmt(tin); $("#sumOut").textContent=fmt(tout);
   const net=tin-tout; const sn=$("#sumNet"); sn.textContent=(net<0?"−":"")+fmt(Math.abs(net)); sn.className="val "+(net>=0?"in":"out");
 
@@ -368,7 +467,7 @@ function renderHome(){
     let ps = parties().filter(p=>!q || key(p.name).includes(q));
     const s=$("#sort").value;
     ps.sort((a,b)=> s==="name" ? a.name.localeCompare(b.name) : s==="bal" ? Math.abs(b.out-b.in)-Math.abs(a.out-a.in) : b.last.localeCompare(a.last));
-    if(!ps.length){ list.innerHTML=`<div class="empty">${state.entries.length?"Koi match nahi mila":"Abhi koi entry nahi — niche button se pehli entry daalo"}</div>`; return; }
+    if(!ps.length){ list.innerHTML=`<div class="empty">${state.entries.length?"No matching parties":"No entries yet — use the buttons below to add your first entry"}</div>`; return; }
     list.innerHTML = ps.map(p=>{ const b=balLabel(p.out-p.in); return `
       <div class="row" data-person="${esc(p.name)}">
         <div class="avatar">${esc(initials(p.name))}</div>
@@ -377,7 +476,7 @@ function renderHome(){
       </div>`; }).join("");
   } else {
     let es = sortEntries(filtered).reverse().filter(e=>!q || key(e.person).includes(q) || key(e.note).includes(q));
-    if(!es.length){ list.innerHTML=`<div class="empty">Is period me koi entry nahi</div>`; return; }
+    if(!es.length){ list.innerHTML=`<div class="empty">No entries in this period</div>`; return; }
     list.innerHTML = es.map(e=>`
       <div class="row" data-id="${esc(e.id)}">
         <div class="avatar" style="background:${e.type==="IN"?"var(--in-bg)":"var(--out-bg)"};color:${e.type==="IN"?"var(--in)":"var(--out)"}">${e.type==="IN"?"↓":"↑"}</div>
@@ -390,32 +489,52 @@ function renderHome(){
 function ledgerRows(){
   const k=key(state.person);
   let run=0;
-  return sortEntries(state.entries.filter(e=>key(e.person)===k)).map(e=>{ run += e.type==="OUT" ? e.amount : -e.amount; return {...e, run}; });
+  const mine = sortEntries(state.entries.filter(e=>key(e.person)===k));
+  return [...mine.filter(isOpening), ...mine.filter(e=>!isOpening(e))].map(e=>{ run += e.type==="OUT" ? e.amount : -e.amount; return {...e, run}; });
 }
 function renderLedger(){
   const rows = ledgerRows();
   if(!rows.length){ state.person=null; setView("home"); renderHome(); return; }
   state.person = rows[rows.length-1].person;
   $("#title").textContent = state.person;
-  let tin=0,tout=0; rows.forEach(r=> r.type==="IN"?tin+=r.amount:tout+=r.amount);
+  let tin=0,tout=0,op=0,hasOp=false; rows.forEach(r=>{ if(isOpening(r)){ hasOp=true; op += r.type==="OUT"?r.amount:-r.amount; return; } r.type==="IN"?tin+=r.amount:tout+=r.amount; });
+  $("#ledOpenWrap").classList.toggle("hidden", !hasOp);
+  if(hasOp){ const ob=balLabel(op); $("#ledOpen").textContent=`${ob.amt} ${ob.txt}`; $("#ledOpen").className=ob.cls; }
+  $("#btnOpening").textContent = hasOp ? "✎ Opening balance" : "⊕ Opening balance";
   $("#ledAvatar").textContent=initials(state.person);
   $("#ledName").textContent=state.person;
   $("#ledMeta").textContent=`${rows.length} ${rows.length===1?"entry":"entries"} · ${prettyDate(rows[0].date)} – ${prettyDate(rows[rows.length-1].date)}`;
   $("#ledIn").textContent=fmt(tin); $("#ledOut").textContent=fmt(tout);
-  const b=balLabel(tout-tin); const lb=$("#ledBal"); lb.textContent=`${b.amt} ${b.txt}`; lb.className=b.cls;
+  const b=balLabel(op+tout-tin); const lb=$("#ledBal"); lb.textContent=`${b.amt} ${b.txt}`; lb.className=b.cls;
   $("#ledBody").innerHTML = rows.map(r=>{ const bl=balLabel(r.run); return `
-    <tr class="click" data-id="${esc(r.id)}">
+    <tr class="click${isOpening(r)?" open-row":""}" data-id="${esc(r.id)}">
       <td>${esc(prettyDate(r.date))}</td>
-      <td>${esc(r.note||"—")}${r.mode?`<span class="chip">${esc(r.mode)}</span>`:""}</td>
+      <td>${isOpening(r) ? `<span class="open-tag">Opening</span>${r.note && !/^opening balance$/i.test(r.note) ? " "+esc(r.note) : ""}` : `${esc(r.note||"—")}${r.mode?`<span class="chip">${esc(r.mode)}</span>`:""}`}</td>
       <td class="num ${r.type==="IN"?"cin in":""}">${r.type==="IN"?fmt(r.amount):""}</td>
       <td class="num ${r.type==="OUT"?"cout out":""}">${r.type==="OUT"?fmt(r.amount):""}</td>
       <td class="num"><b class="${bl.cls}">${bl.amt}</b><div class="sub">${bl.txt}</div></td>
     </tr>`; }).join("");
+  $("#ledCards").innerHTML = rows.slice().reverse().map(r=>{ const bl=balLabel(r.run), op=isOpening(r), inn=r.type==="IN";
+    const note = op ? (r.note && !/^opening balance$/i.test(r.note) ? r.note : "Opening balance") : (r.note || (inn?"Cash in":"Cash out"));
+    return `
+    <div class="lcard${op?" open-row":""}" data-id="${esc(r.id)}">
+      <div class="ico ${op?"i-op":inn?"i-in":"i-out"}">${op?"OB":inn?"↓":"↑"}</div>
+      <div class="l-main">
+        <div class="l-note">${esc(note)}</div>
+        <div class="sub">${[prettyDate(r.date), op?"":r.mode].filter(Boolean).map(esc).join(" · ")}</div>
+      </div>
+      <div class="l-right">
+        <div class="l-amt ${inn?"in":"out"}">${inn?"+":"−"}${fmt(r.amount)}</div>
+        <div class="sub">Bal ${bl.amt} · ${bl.txt}</div>
+      </div>
+    </div>`; }).join("");
 }
 function render(){ if(state.view==="ledger") renderLedger(); else if(state.view==="home") renderHome(); }
 
 /* ---------- load ---------- */
+let lastLoad = 0, loading = false;
 async function load(){
+  lastLoad = Date.now();
   if(state.view==="home") $("#list").innerHTML=`<div class="loading">Loading…</div>`;
   try{
     const data = await api("list");
@@ -430,9 +549,31 @@ function showLock(msg){ setView("lock"); $("#lockErr").textContent=msg||""; $("#
 
 /* ---------- entry modal ---------- */
 function setType(t){ state.type=t; $("#segIn").className=t==="IN"?"on-in":""; $("#segOut").className=t==="OUT"?"on-out":""; }
-function openEntry(type, entry){
+function setOpeningMode(on){
+  state.opening = !!on;
+  $("#segIn").textContent  = on ? `↓ ${balLabel(-1).txt} (you owe them)` : "↓ Cash In";
+  $("#segOut").textContent = on ? `↑ ${balLabel(1).txt} (they owe you)` : "↑ Cash Out";
+  if(CASHFLOW){ $("#segIn").textContent = on ? "↓ Net Received (prior)" : "↓ Cash In"; $("#segOut").textContent = on ? "↑ Net Paid (prior)" : "↑ Cash Out"; }
+  $("#modeField").classList.toggle("hidden", on);
+  $("#openHint").classList.toggle("hidden", !on);
+  $("#toggleOpening").textContent = on ? "← Normal Cash In / Out entry" : "⊕ Add an opening balance instead";
+  $("#toggleOpening").classList.toggle("hidden", !!state.editing);
+  $("#entryTitle").textContent = (on ? "Opening Balance" : "Entry") + (state.editing ? " — Edit" : "");
+  if(!state.editing && !on) $("#entryTitle").textContent = "New Entry";
+}
+function openOpening(person){
+  const ex = state.entries.find(e=>key(e.person)===key(person) && isOpening(e));
+  if(ex) return openEntry(ex.type, ex);
+  const first = sortEntries(state.entries.filter(e=>key(e.person)===key(person)))[0];
+  openEntry("OUT", null, true);
+  $("#fPerson").value = person;
+  if(first && first.date && first.date < todayISO()) $("#fDate").value = first.date;
+  setTimeout(()=>$("#fAmount").focus(), 70);
+}
+function openEntry(type, entry, opening){
   state.editing = entry || null;
-  $("#entryTitle").textContent = entry ? "Entry edit karo" : "Nayi Entry";
+  const op = entry ? isOpening(entry) : !!opening;
+  $("#entryTitle").textContent = entry ? "Edit Entry" : "New Entry";
   setType(entry ? entry.type : type);
   $("#fPerson").value = entry ? entry.person : (state.view==="ledger" ? state.person : "");
   $("#fAmount").value = entry ? entry.amount : "";
@@ -441,21 +582,37 @@ function openEntry(type, entry){
   $("#fNote").value = entry ? (entry.note||"") : "";
   $("#btnDelete").classList.toggle("hidden", !entry);
   $("#peopleList").innerHTML = parties().map(p=>`<option value="${esc(p.name)}">`).join("");
-  $("#entryModal").classList.add("show");
+  setOpeningMode(op);
+  if(op && !entry) $("#fNote").value = "";
+  openModal("#entryModal");
   setTimeout(()=> ($("#fPerson").value ? $("#fAmount") : $("#fPerson")).focus(), 60);
 }
-const closeModal = id => $(id).classList.remove("show");
+let skipPop = false;
+function pushNav(tag){ try{ history.pushState({tag}, ""); }catch(e){} }
+function openModal(id){ $(id).classList.add("show"); pushNav("modal"); }
+const closeModal = id => {
+  const el=$(id); if(!el.classList.contains("show")) return;
+  el.classList.remove("show");
+  if(history.state && history.state.tag==="modal"){ skipPop=true; history.back(); }
+};
+window.addEventListener("popstate", ()=>{
+  if(skipPop){ skipPop=false; return; }
+  const open=document.querySelector(".overlay.show");
+  if(open){ open.classList.remove("show"); return; }
+  if(state.view==="ledger"){ state.person=null; setView("home"); renderHome(); }
+});
 
 async function saveEntry(){
   let person = $("#fPerson").value.trim();
   const amount = Math.round(parseFloat($("#fAmount").value)*100)/100;
   const date = $("#fDate").value;
-  if(!person) return toast("Person ka naam daalo");
-  if(!(amount>0)) return toast("Sahi amount daalo");
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return toast("Date select karo");
+  if(!person) return toast("Please enter a name");
+  if(!(amount>0)) return toast("Please enter a valid amount");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return toast("Please select a date");
   // reuse existing spelling of the name (case-insensitive) so ledgers don't split
   const existing = parties().find(p=>key(p.name)===key(person)); if(existing) person=existing.name;
-  const entry = { person, amount, date, type:state.type, mode:$("#fMode").value, note:$("#fNote").value.trim() };
+  const entry = { person, amount, date, type:state.type, mode: state.opening ? "Opening" : ($("#fMode").value || "Cash"), note: $("#fNote").value.trim() || (state.opening ? "Opening balance" : "") };
+  if(state.opening && !state.editing && state.entries.some(e=>key(e.person)===key(person) && isOpening(e)) && !confirm(person+" already has an opening balance. Add another one?")) return;
   const btn=$("#btnSave"); btn.disabled=true; btn.textContent="Saving…";
   try{
     if(state.editing){ entry.id=state.editing.id; await api("update",{entry}); }
@@ -467,7 +624,7 @@ async function saveEntry(){
   finally{ btn.disabled=false; btn.textContent="Save"; }
 }
 async function deleteEntry(){
-  if(!state.editing || !confirm("Yeh entry delete karni hai? Sheet se bhi hat jayegi.")) return;
+  if(!state.editing || !confirm("Delete this entry? It will also be removed from the Google Sheet.")) return;
   try{ await api("delete",{id:state.editing.id}); closeModal("#entryModal"); toast("Deleted"); await load(); }
   catch(err){ toast(err.message); }
 }
@@ -477,21 +634,21 @@ function downloadCsv(){
   const rows = ledgerRows();
   const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
   const lines = [["Date","Person","Type","Mode","Note","In","Out","Balance","Status"].map(q).join(",")];
-  rows.forEach(r=>{ const b=balLabel(r.run); lines.push([r.date,r.person,r.type,r.mode,r.note,r.type==="IN"?r.amount:"",r.type==="OUT"?r.amount:"",Math.abs(r.run),b.txt].map(q).join(",")); });
+  rows.forEach(r=>{ const b=balLabel(r.run); lines.push([r.date,r.person,isOpening(r)?"OPENING":r.type,r.mode,r.note,r.type==="IN"?r.amount:"",r.type==="OUT"?r.amount:"",Math.abs(r.run),b.txt].map(q).join(",")); });
   const blob = new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`Ledger_${state.person.replace(/[^\w]+/g,"_")}_${todayISO()}.csv`; document.body.appendChild(a); a.click(); a.remove();
 }
 async function shareSummary(){
-  const rows=ledgerRows(); let tin=0,tout=0; rows.forEach(r=>r.type==="IN"?tin+=r.amount:tout+=r.amount);
-  const b=balLabel(tout-tin);
-  const text = `${state.person} — Ledger summary (${prettyDate(todayISO())})\nTotal In: ${fmt(tin)}\nTotal Out: ${fmt(tout)}\nBalance: ${b.amt} (${b.txt})`;
+  const rows=ledgerRows(); let tin=0,tout=0,op=0,hasOp=false; rows.forEach(r=>{ if(isOpening(r)){ hasOp=true; op += r.type==="OUT"?r.amount:-r.amount; return; } r.type==="IN"?tin+=r.amount:tout+=r.amount; });
+  const b=balLabel(op+tout-tin), ob=balLabel(op);
+  const text = `${state.person} — Ledger summary (${prettyDate(todayISO())})\n${hasOp?`Opening: ${ob.amt} (${ob.txt})\n`:""}Total In: ${fmt(tin)}\nTotal Out: ${fmt(tout)}\nBalance: ${b.amt} (${b.txt})`;
   try{ if(navigator.share){ await navigator.share({text}); return; } }catch(e){ return; }
-  try{ await navigator.clipboard.writeText(text); toast("Summary copy ho gaya"); }catch(e){ prompt("Copy karo:", text); }
+  try{ await navigator.clipboard.writeText(text); toast("Summary copied"); }catch(e){ prompt("Copy this summary:", text); }
 }
 async function renamePerson(){
-  const to = (prompt("Naya naam:", state.person)||"").trim();
+  const to = (prompt("New name:", state.person)||"").trim();
   if(!to || to===state.person) return;
-  try{ await api("rename",{from:state.person,to}); state.person=to; toast("Rename ho gaya"); await load(); }
+  try{ await api("rename",{from:state.person,to}); state.person=to; toast("Renamed"); await load(); }
   catch(err){ toast(err.message); }
 }
 
@@ -503,24 +660,27 @@ $("#segOut").onclick = ()=>setType("OUT");
 $("#btnSave").onclick = saveEntry;
 $("#btnCancel").onclick = ()=>closeModal("#entryModal");
 $("#btnDelete").onclick = deleteEntry;
-$("#btnBack").onclick = ()=>{ state.person=null; setView("home"); renderHome(); };
+$("#btnBack").onclick = ()=>{ if(history.state && history.state.tag==="ledger"){ history.back(); return; } state.person=null; setView("home"); renderHome(); };
 $("#btnRefresh").onclick = ()=>{ load(); toast("Refreshing…"); };
 $("#btnCsv").onclick = downloadCsv;
 $("#btnPrint").onclick = ()=>window.print();
 $("#btnShare").onclick = shareSummary;
 $("#btnRename").onclick = renamePerson;
+$("#btnOpening").onclick = ()=>openOpening(state.person);
+$("#toggleOpening").onclick = ()=>{ setOpeningMode(!state.opening); if(state.opening && !state.editing) setType("OUT"); };
 ["#period","#sort"].forEach(s=>$(s).addEventListener("change",renderHome));
 $("#search").addEventListener("input",renderHome);
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active"); state.tab=t.dataset.tab; renderHome(); });
 $("#list").addEventListener("click",ev=>{
   const r=ev.target.closest(".row"); if(!r) return;
-  if(r.dataset.person){ state.person=r.dataset.person; setView("ledger"); renderLedger(); }
+  if(r.dataset.person){ state.person=r.dataset.person; setView("ledger"); renderLedger(); pushNav("ledger"); }
   else if(r.dataset.id){ const e=state.entries.find(x=>x.id===r.dataset.id); if(e) openEntry(e.type,e); }
 });
+$("#ledCards").addEventListener("click",ev=>{ const r=ev.target.closest(".lcard[data-id]"); if(!r) return; const e=state.entries.find(x=>x.id===r.dataset.id); if(e) openEntry(e.type,e); });
 $("#ledBody").addEventListener("click",ev=>{ const r=ev.target.closest("tr[data-id]"); if(!r) return; const e=state.entries.find(x=>x.id===r.dataset.id); if(e) openEntry(e.type,e); });
-document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",ev=>{ if(ev.target===o) o.classList.remove("show"); }));
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",ev=>{ if(ev.target===o) closeModal("#"+o.id); }));
 document.addEventListener("keydown",ev=>{
-  if(ev.key==="Escape") document.querySelectorAll(".overlay.show").forEach(o=>o.classList.remove("show"));
+  if(ev.key==="Escape") document.querySelectorAll(".overlay.show").forEach(o=>closeModal("#"+o.id));
   if(ev.key==="Enter" && $("#entryModal").classList.contains("show") && ev.target.tagName!=="TEXTAREA"){ ev.preventDefault(); saveEntry(); }
 });
 
@@ -536,10 +696,10 @@ $("#btnUnlock").onclick=unlock;
 $("#pinInput").addEventListener("keydown",e=>{ if(e.key==="Enter") unlock(); });
 
 /* settings */
-$("#btnSettings").onclick=()=>{ $("#sUrl").value=state.url; $("#sPin").value=state.pin; $("#testMsg").textContent=""; $("#settingsModal").classList.add("show"); };
+$("#btnSettings").onclick=()=>{ $("#sUrl").value=state.url; $("#sPin").value=state.pin; $("#testMsg").textContent=""; openModal("#settingsModal"); };
 $("#btnSaveSettings").onclick=async()=>{
   const url=$("#sUrl").value.trim(), pin=$("#sPin").value.trim();
-  if(url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) { $("#testMsg").textContent="URL '/exec' pe khatam hona chahiye (Web App URL)."; return; }
+  if(url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) { $("#testMsg").textContent="The URL must be the Web App URL ending in '/exec'."; return; }
   state.url=url; state.pin=pin;
   url ? store.set("khata_url",url) : store.del("khata_url");
   pin ? store.set("khata_pin",pin) : store.del("khata_pin");
@@ -550,11 +710,54 @@ $("#btnSaveSettings").onclick=async()=>{
 $("#btnTest").onclick=async()=>{
   const prev={url:state.url,pin:state.pin}; state.url=$("#sUrl").value.trim(); state.pin=$("#sPin").value.trim();
   $("#testMsg").textContent="Testing…";
-  try{ await api("ping"); $("#testMsg").textContent = isDemo() ? "Demo mode (URL khali hai)" : "✓ Connected"; }
+  try{ await api("ping"); $("#testMsg").textContent = isDemo() ? "Demo mode (no URL set)" : "✓ Connected"; }
   catch(err){ $("#testMsg").textContent="✗ "+err.message; }
   finally{ state.url=prev.url; state.pin=prev.pin; }
 };
 $("#btnLogout").onclick=()=>{ store.del("khata_pin"); state.pin=""; state.entries=[]; closeModal("#settingsModal"); if(isDemo()){ setView("home"); load(); } else showLock(); };
+
+/* install (PWA) */
+let deferredPrompt = null;
+const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+if(!isStandalone()) $("#btnInstall").classList.remove("hidden");
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredPrompt = e; });
+window.addEventListener("appinstalled", () => { deferredPrompt = null; $("#btnInstall").classList.add("hidden"); closeModal("#installModal"); toast("App installed ✓"); });
+$("#btnInstall").onclick = async () => {
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    try{ const c = await deferredPrompt.userChoice; if(c.outcome === "accepted") $("#btnInstall").classList.add("hidden"); }catch(e){}
+    deferredPrompt = null; return;
+  }
+  $("#installIOS").classList.toggle("hidden", !isIOS);
+  $("#installOther").classList.toggle("hidden", isIOS);
+  openModal("#installModal");
+};
+$("#btnInstallClose").onclick = () => closeModal("#installModal");
+if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+/* refresh when the app is reopened (phone) */
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="visible" && state.view!=="lock" && !document.querySelector(".overlay.show") && Date.now()-lastLoad > 30000) load();
+});
+
+/* pull to refresh */
+(function(){
+  let y0=null, pulled=false; const ptr=$("#ptr"), LIM=70;
+  window.addEventListener("touchstart", e=>{ y0 = (window.scrollY<=0 && state.view!=="lock" && !document.querySelector(".overlay.show")) ? e.touches[0].clientY : null; pulled=false; }, {passive:true});
+  window.addEventListener("touchmove", e=>{
+    if(y0===null) return; const dy=e.touches[0].clientY-y0;
+    if(dy>15){ ptr.classList.add("show"); pulled = dy>LIM; ptr.textContent = pulled ? "↻ Release to refresh" : "↓ Pull to refresh"; }
+    else ptr.classList.remove("show");
+  }, {passive:true});
+  window.addEventListener("touchend", async ()=>{
+    if(y0===null) return; y0=null;
+    if(pulled){ ptr.textContent="Refreshing…"; await load(); }
+    ptr.classList.remove("show");
+  });
+})();
 
 /* boot */
 if(!isDemo() && !state.pin) showLock();
