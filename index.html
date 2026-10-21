@@ -121,6 +121,21 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
   .tbl-wrap,.bal-box,.stat{box-shadow:none}
 }
 @media (max-width:480px){ .stat .val{font-size:clamp(13px,3.9vw,18px);white-space:nowrap} .stat{padding:12px 10px} .stat .lbl{font-size:12.5px} table.led{font-size:14.5px} table.led td,table.led th{padding:9px 6px} .name{font-size:17px} .amt{font-size:17px} }
+/* ---------- balance-sheet party list ---------- */
+.sec-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:13px;font-weight:800;letter-spacing:.6px;text-transform:uppercase}
+.sec-head.s-rec{background:var(--in-bg);color:var(--in)}
+.sec-head.s-pay{background:var(--out-bg);color:var(--out)}
+.sec-head.s-nil{background:var(--line);color:var(--muted)}
+.sec-total{display:flex;justify-content:space-between;padding:11px 16px;font-weight:800;font-size:16px;border-top:2px solid currentColor;border-bottom:1px solid var(--line)}
+.sec-total.s-rec{color:var(--in)} .sec-total.s-pay{color:var(--out)}
+.net-pos{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 16px;background:var(--brand);color:#fff;font-weight:800;font-size:18px}
+.net-pos small{display:block;font-size:12.5px;font-weight:600;opacity:.8;margin-top:2px}
+.net-pos span:last-child{text-align:right}
+.net-pos .in{color:#6fe3a5} .net-pos .out{color:#ff9b91}
+.custom-range{display:flex;gap:10px;margin:-2px 0 12px}
+.custom-range label{flex:1;font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.custom-range input{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px;min-width:0}
+
 /* ---------- phone ---------- */
 html{-webkit-text-size-adjust:100%}
 button,.row,.tab,.lcard,select,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -186,7 +201,12 @@ body{overscroll-behavior-y:contain}
         <option value="month">This month</option>
         <option value="lastmonth">Last month</option>
         <option value="fy" id="fyOption">Current financial year</option>
+        <option value="custom">Custom range…</option>
       </select>
+    </div>
+    <div class="custom-range hidden" id="customRange">
+      <label>From<input type="date" id="dFrom"></label>
+      <label>To<input type="date" id="dTo"></label>
     </div>
     <div class="summary">
       <div class="stat"><div class="lbl">Cash In ↓</div><div class="val in" id="sumIn">0</div></div>
@@ -357,7 +377,8 @@ const isOpening = e => /^opening/i.test(String((e && e.mode) || "").trim());
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const fmt = n => CUR + (CUR.length>1?"\u00a0":"") + Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:0,maximumFractionDigits:2});
+const LOCALE = CFG.NUMBER_LOCALE || (CUR==="₹" ? "en-IN" : "en-US");
+const fmt = n => CUR + (CUR.length>1?"\u00a0":"") + Number(n||0).toLocaleString(LOCALE,{minimumFractionDigits:0,maximumFractionDigits:2});
 const todayISO = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const prettyDate = iso => { if(!iso) return ""; const [y,m,d]=iso.split("-"); const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]||m; return `${+d} ${mn} ${y}`; };
 const initials = n => String(n).trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase() || "?";
@@ -365,13 +386,13 @@ const key = n => String(n).trim().toLowerCase();
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2600); }
 
 /* Balance convention: per party, Out − In.
-   > 0  => you paid them more than you received  => "To Receive"
-   < 0  => you received more than you paid them  => "To Pay" */
+   > 0  => you paid them more than you received  => "Receivable" (green)
+   < 0  => you received more than you paid them  => "Payable"    (red) */
 const CASHFLOW = String(CFG.BALANCE_STYLE||"khata").toLowerCase()==="cashflow";
 function balLabel(b){
-  if (Math.abs(b) < 0.005) return {txt:"Settled", cls:"", amt:fmt(0)};
-  if (CASHFLOW) return b > 0 ? {txt:"Net Paid", cls:"out", amt:fmt(b)} : {txt:"Net Received", cls:"in", amt:fmt(-b)};
-  return b > 0 ? {txt:"To Receive", cls:"out", amt:fmt(b)} : {txt:"To Pay", cls:"in", amt:fmt(-b)};
+  if (Math.abs(b) < 0.005) return {txt:"Settled", cls:"", amt:fmt(0), side:"nil"};
+  if (CASHFLOW) return b > 0 ? {txt:"Net Paid", cls:"in", amt:fmt(b), side:"rec"} : {txt:"Net Received", cls:"out", amt:fmt(-b), side:"pay"};
+  return b > 0 ? {txt:"Receivable", cls:"in", amt:fmt(b), side:"rec"} : {txt:"Payable", cls:"out", amt:fmt(-b), side:"pay"};
 }
 
 /* ---------- API ---------- */
@@ -414,6 +435,7 @@ function inPeriod(iso){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
   const pad=n=>String(n).padStart(2,"0");
   if(p==="today") return iso===todayISO();
+  if(p==="custom"){ const f=$("#dFrom").value, t=$("#dTo").value; if(!iso) return false; return (!f || iso>=f) && (!t || iso<=t); }
   if(p==="month") return iso.slice(0,7)===`${y}-${pad(m+1)}`;
   if(p==="lastmonth"){ const d=new Date(y,m-1,1); return iso.slice(0,7)===`${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
   if(p==="fy"){
@@ -468,12 +490,26 @@ function renderHome(){
     const s=$("#sort").value;
     ps.sort((a,b)=> s==="name" ? a.name.localeCompare(b.name) : s==="bal" ? Math.abs(b.out-b.in)-Math.abs(a.out-a.in) : b.last.localeCompare(a.last));
     if(!ps.length){ list.innerHTML=`<div class="empty">${state.entries.length?"No matching parties":"No entries yet — use the buttons below to add your first entry"}</div>`; return; }
-    list.innerHTML = ps.map(p=>{ const b=balLabel(p.out-p.in); return `
+    const rowHtml = p => { const b=balLabel(p.out-p.in); return `
       <div class="row" data-person="${esc(p.name)}">
         <div class="avatar">${esc(initials(p.name))}</div>
         <div class="grow"><div class="name">${esc(p.name)}</div><div class="sub">${p.count} ${p.count===1?"entry":"entries"} · last ${esc(prettyDate(p.last))}</div></div>
-        <div class="amt ${b.cls}">${b.amt}<div class="sub">${b.txt}</div></div>
-      </div>`; }).join("");
+        <div class="amt ${b.cls}">${b.amt}</div>
+      </div>`; };
+    const groups = { rec:[], pay:[], nil:[] };
+    ps.forEach(p=> groups[balLabel(p.out-p.in).side].push(p));
+    const total = arr => arr.reduce((s,p)=>s+Math.abs(p.out-p.in),0);
+    const T = CASHFLOW ? {rec:"Net Paid", pay:"Net Received"} : {rec:"Receivables", pay:"Payables"};
+    const recT = total(groups.rec), payT = total(groups.pay), net = recT - payT;
+    const section = (k, cls, title) => groups[k].length ? `
+      <div class="sec-head ${cls}"><span>${title}</span><span>${groups[k].length} ${groups[k].length===1?"party":"parties"}</span></div>
+      ${groups[k].map(rowHtml).join("")}
+      <div class="sec-total ${cls}"><span>Total ${title}</span><span>${fmt(total(groups[k]))}</span></div>` : "";
+    list.innerHTML =
+      section("rec","s-rec",T.rec) + section("pay","s-pay",T.pay) +
+      (groups.nil.length ? `<div class="sec-head s-nil"><span>Settled</span><span>${groups.nil.length}</span></div>${groups.nil.map(rowHtml).join("")}` : "") +
+      `<div class="net-pos"><span>Net position<small>${T.rec} − ${T.pay}</small></span>
+        <span class="${net>0.004?"in":net<-0.004?"out":""}">${net<-0.004?"−":""}${fmt(Math.abs(net))}<small>${net>0.004?"Net receivable":net<-0.004?"Net payable":"Balanced"}</small></span></div>`;
   } else {
     let es = sortEntries(filtered).reverse().filter(e=>!q || key(e.person).includes(q) || key(e.note).includes(q));
     if(!es.length){ list.innerHTML=`<div class="empty">No entries in this period</div>`; return; }
@@ -548,7 +584,7 @@ async function load(){
 function showLock(msg){ setView("lock"); $("#lockErr").textContent=msg||""; $("#pinInput").value=""; setTimeout(()=>$("#pinInput").focus(),50); }
 
 /* ---------- entry modal ---------- */
-function setType(t){ state.type=t; $("#segIn").className=t==="IN"?"on-in":""; $("#segOut").className=t==="OUT"?"on-out":""; }
+function setType(t){ state.type=t; const op=!!state.opening; $("#segIn").className = t==="IN" ? (op?"on-out":"on-in") : ""; $("#segOut").className = t==="OUT" ? (op?"on-in":"on-out") : ""; }
 function setOpeningMode(on){
   state.opening = !!on;
   $("#segIn").textContent  = on ? `↓ ${balLabel(-1).txt} (you owe them)` : "↓ Cash In";
@@ -560,6 +596,7 @@ function setOpeningMode(on){
   $("#toggleOpening").classList.toggle("hidden", !!state.editing);
   $("#entryTitle").textContent = (on ? "Opening Balance" : "Entry") + (state.editing ? " — Edit" : "");
   if(!state.editing && !on) $("#entryTitle").textContent = "New Entry";
+  setType(state.type);
 }
 function openOpening(person){
   const ex = state.entries.find(e=>key(e.person)===key(person) && isOpening(e));
@@ -669,6 +706,15 @@ $("#btnRename").onclick = renamePerson;
 $("#btnOpening").onclick = ()=>openOpening(state.person);
 $("#toggleOpening").onclick = ()=>{ setOpeningMode(!state.opening); if(state.opening && !state.editing) setType("OUT"); };
 ["#period","#sort"].forEach(s=>$(s).addEventListener("change",renderHome));
+$("#period").addEventListener("change", ()=>{
+  const on = $("#period").value==="custom";
+  $("#customRange").classList.toggle("hidden", !on);
+  if(on && !$("#dFrom").value){ const t=todayISO(); $("#dFrom").value = t.slice(0,8)+"01"; $("#dTo").value = t; renderHome(); }
+});
+["#dFrom","#dTo"].forEach(s=>$(s).addEventListener("change", ()=>{
+  if($("#dFrom").value && $("#dTo").value && $("#dFrom").value > $("#dTo").value){ const x=$("#dFrom").value; $("#dFrom").value=$("#dTo").value; $("#dTo").value=x; }
+  renderHome();
+}));
 $("#search").addEventListener("input",renderHome);
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active"); state.tab=t.dataset.tab; renderHome(); });
 $("#list").addEventListener("click",ev=>{

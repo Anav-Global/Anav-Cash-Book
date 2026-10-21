@@ -5,10 +5,10 @@ The app runs in the browser (and can be installed on a phone or computer), and a
 
 ## Features
 - Record **Cash In** and **Cash Out** entries with date, payment mode and note
-- **Party list** with each party's running balance ("To Receive" / "To Pay")
+- **Party list in balance-sheet format:** Receivables (green) and Payables (red), each with a total, followed by the net position
 - **Party ledger** with date-wise entries and running balance; export to CSV, print / save as PDF, or share a summary
 - **Opening balance** per party
-- Summary of Cash In, Cash Out and Net for: all time, today, this month, last month, current financial year
+- Summary of Cash In, Cash Out and Net for: all time, today, this month, last month, current financial year, or a **custom date range**
 - Edit, delete and rename — every change is written to the Google Sheet immediately
 - **Installable app** (Android, iPhone, Windows, Mac) via the **⬇ App** button
 - PIN-protected access
@@ -51,13 +51,15 @@ On first use, the script adds **Mode | Note | ID** to the right and fills an ID 
 ## Balances
 - **Home summary:** Net = Cash In − Cash Out for the selected period.
 - **Party balance:** Cash Out − Cash In (plus opening balance).
-  Positive = **To Receive** (you paid them more than you received); negative = **To Pay**.
+  Positive = **Receivable** (you paid them more than you received) — shown in green; negative = **Payable** — shown in red.
+- **Parties tab:** grouped like a balance sheet — Receivables with total, Payables with total, settled parties, and **Net position** (Total Receivables − Total Payables).
   Set `BALANCE_STYLE: "cashflow"` to show **Net Paid / Net Received** instead.
-- Party balances are always all-time; the period filter applies to the summary and the *All Entries* tab.
+- Party balances are always all-time (as at today); the period filter, including the custom range, applies to the summary and the *All Entries* tab.
+- Amounts use international grouping (115,000). Set `NUMBER_LOCALE: "en-IN"` in `config.js` for Indian grouping (1,15,000).
 
 ## Opening balance
 - In a party's ledger, use **⊕ Opening balance**, or use **"Add an opening balance instead"** in the new-entry form.
-- It is saved as a normal row with **Mode = Opening** ("To Receive" → Cash Out column, "To Pay" → Cash In column).
+- It is saved as a normal row with **Mode = Opening** ("Receivable" → Cash Out column, "Payable" → Cash In column).
 - It is included in the party's balance and shown at the top of the ledger, but is **excluded from the Cash In / Cash Out totals** in the app.
 - If you total the Sheet columns yourself, exclude opening rows, for example: `=SUMIFS(C:C, E:E, "<>Opening")` (C = Cash In; use D for Cash Out; E = Mode).
 
