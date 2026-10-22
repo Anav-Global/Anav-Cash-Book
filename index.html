@@ -168,6 +168,24 @@ td.cin{background:var(--in-bg)} td.cout{background:var(--out-bg)}
   .tb-r.l2 .tb-n{padding-left:2px}
 }
 
+/* ---------- currency ---------- */
+.ccy-bar{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:5px;margin-bottom:12px;box-shadow:var(--shadow)}
+.ccy-bar button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 6px;font-weight:800;font-size:16px;color:var(--muted);cursor:pointer;line-height:1.15}
+.ccy-bar button small{display:block;font-size:11.5px;font-weight:600;opacity:.85}
+.ccy-bar button.on{background:var(--brand);color:var(--gold);box-shadow:inset 0 -3px 0 var(--gold)}
+.ccy-seg{display:flex;gap:8px}
+.ccy-seg button{flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--line);background:var(--bg);font-weight:800;font-size:16px;cursor:pointer}
+.ccy-seg button.on{border-color:var(--gold);background:var(--brand);color:var(--gold)}
+.ccy-chips{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin:0 0 12px}
+.ccy-acct{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 6px;cursor:pointer;text-align:center;line-height:1.2;box-shadow:var(--shadow);min-width:0}
+.ccy-acct b{display:block;font-size:14px;color:var(--muted)}
+.ccy-acct span{display:block;font-weight:800;font-size:15.5px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccy-acct small{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+.ccy-acct.on{border:2px solid var(--gold);background:var(--brand)}
+.ccy-acct.on b,.ccy-acct.on small{color:var(--gold)}
+.ccy-acct.on span{color:#fff} .ccy-acct.on span.in{color:#6fe3a5} .ccy-acct.on span.out{color:#ff9b91}
+.ccy-chips:empty{display:none}
+
 /* ---------- phone ---------- */
 html{-webkit-text-size-adjust:100%}
 button,.row,.tab,.lcard,select,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -226,6 +244,7 @@ body{overscroll-behavior-y:contain}
   <!-- Home -->
   <div class="ptr" id="ptr">↓ Pull to refresh</div>
   <section id="homeView" class="wrap hidden">
+    <div class="ccy-bar" id="ccyBar" role="tablist" aria-label="Currency"></div>
     <div class="toolbar" style="margin-top:0">
       <select id="period">
         <option value="all">All time</option>
@@ -269,6 +288,7 @@ body{overscroll-behavior-y:contain}
         <div class="sub" id="ledMeta"></div>
       </div>
     </div>
+    <div class="ccy-chips" id="ledCcy" aria-label="Accounts by currency"></div>
     <div class="bal-box">
       <div id="ledOpenWrap" class="hidden"><div class="sub">Opening</div><div style="font-weight:700" id="ledOpen"></div></div>
       <div><div class="sub">Total In</div><div class="in" style="font-weight:700" id="ledIn"></div></div>
@@ -318,6 +338,7 @@ body{overscroll-behavior-y:contain}
       <div class="field"><label>Amount</label><input id="fAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" enterkeyhint="done"></div>
       <div class="field"><label>Date</label><input id="fDate" type="date"></div>
     </div>
+    <div class="field"><label>Currency</label><div class="ccy-seg" id="fCcy"></div></div>
     <div class="field" id="modeField"><label>Mode</label>
       <select id="fMode"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option><option>Other</option></select>
     </div>
@@ -381,7 +402,21 @@ body{overscroll-behavior-y:contain}
 (function(){
 "use strict";
 const CFG = window.KHATA_CONFIG || {};
-const CUR = CFG.CURRENCY || "₹";
+/* ---------- currencies ----------
+   Each entry carries a currency. Totals are never added across currencies:
+   the dashboard, party list and ledgers always show one currency at a time. */
+const CURRENCIES = (Array.isArray(CFG.CURRENCIES) && CFG.CURRENCIES.length ? CFG.CURRENCIES : [
+  { code:"TSH", symbol:"TSH", label:"TSH" },
+  { code:"INR", symbol:"₹",   label:"Rupees", locale:"en-IN" },
+  { code:"USD", symbol:"$",   label:"Dollar" }
+]).map(c=>({ code:String(c.code).toUpperCase(), symbol:c.symbol||c.code, label:c.label||c.code, locale:c.locale||"" }));
+const CCY_ALIASES = { "₹":"INR","RS":"INR","RS.":"INR","INR":"INR","RUPEE":"INR","RUPEES":"INR",
+  "$":"USD","USD":"USD","DOLLAR":"USD","DOLLARS":"USD","US$":"USD",
+  "TSH":"TSH","TZS":"TSH","TSHS":"TSH","SHILLING":"TSH","SHILLINGS":"TSH" };
+const normCcy = v => { const s=String(v??"").trim().toUpperCase(); if(!s) return ""; return CCY_ALIASES[s] || (CURRENCIES.find(c=>c.code===s||c.symbol.toUpperCase()===s)||{}).code || s; };
+const DEFAULT_CCY = normCcy(CFG.DEFAULT_CURRENCY) || normCcy(CFG.CURRENCY) || CURRENCIES[0].code;
+const ccyInfo = code => CURRENCIES.find(c=>c.code===code) || { code, symbol:code, label:code, locale:"" };
+let CUR = ccyInfo(DEFAULT_CCY).symbol;
 const $ = s => document.querySelector(s);
 
 /* ---------- safe storage ---------- */
@@ -399,17 +434,23 @@ const state = {
   tab: "parties",
   person: null,
   editing: null,
-  type: "IN"
+  type: "IN",
+  ccy: DEFAULT_CCY,
+  formCcy: DEFAULT_CCY,
+  backendCcy: true
 };
 const isDemo = () => !state.url;
 const FY_START = Math.min(12, Math.max(1, parseInt(CFG.FY_START_MONTH,10) || 4));
 (function(){ const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const o=document.getElementById("fyOption"); if(o) o.textContent = FY_START===1 ? "Current year (Jan–Dec)" : `Current FY (${M[FY_START-1]}–${M[(FY_START+10)%12]})`; })();
 const isOpening = e => /^opening/i.test(String((e && e.mode) || "").trim());
+const inCcy = () => state.entries.filter(e=>e.currency===state.ccy);
+const ccyList = () => { const seen=new Set(CURRENCIES.map(c=>c.code)); const extra=[...new Set(state.entries.map(e=>e.currency))].filter(c=>!seen.has(c)); return [...CURRENCIES.map(c=>c.code), ...extra]; };
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const LOCALE = CFG.NUMBER_LOCALE || (CUR==="₹" ? "en-IN" : "en-US");
+let LOCALE = "en-US";
+function applyCcy(code){ const c=ccyInfo(code); CUR=c.symbol; LOCALE = c.locale || (c.code==="INR" ? "en-IN" : (CFG.NUMBER_LOCALE || "en-US")); }
 const fmt = n => CUR + (CUR.length>1?"\u00a0":"") + Number(n||0).toLocaleString(LOCALE,{minimumFractionDigits:0,maximumFractionDigits:2});
 const todayISO = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const prettyDate = iso => { if(!iso) return ""; const [y,m,d]=iso.split("-"); const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]||m; return `${+d} ${mn} ${y}`; };
@@ -431,12 +472,16 @@ function balLabel(b){
 let demoData = null;
 function seedDemo(){
   // Sample data shown in demo mode
-  let i=0; const e=(date,person,type,amount)=>({id:"demo"+(++i),date,person,type,amount,mode:"",note:"",createdAt:"r"+String(i).padStart(7,"0")});
+  let i=0; const e=(date,person,type,amount,currency="TSH")=>({id:"demo"+(++i),date,person,type,amount,mode:"",note:"",currency,createdAt:"r"+String(i).padStart(7,"0")});
   return [
     e("2026-01-01","Raj","OUT",5000),
     e("2026-10-05","Dev","IN",60000),
     e("2026-02-06","Raj","OUT",60000),
-    e("2026-02-07","Kishan","IN",20000)
+    e("2026-02-07","Kishan","IN",20000),
+    e("2026-09-12","Mehta Traders","OUT",45000,"INR"),
+    e("2026-10-02","Mehta Traders","IN",15000,"INR"),
+    e("2026-10-10","Raj","IN",1200,"USD"),
+    e("2026-10-15","Global Supplies","OUT",800,"USD")
   ];
 }
 function demoApi(action,p){
@@ -482,9 +527,9 @@ function inPeriod(iso){
 }
 const sortEntries = arr => arr.slice().sort((a,b)=> a.date===b.date ? (isOpening(b)-isOpening(a)) || String(a.createdAt).localeCompare(String(b.createdAt)) : a.date.localeCompare(b.date));
 
-function parties(){
+function parties(all){
   const map = new Map();
-  for(const e of state.entries){
+  for(const e of (all ? state.entries : inCcy())){
     const k=key(e.person);
     if(!map.has(k)) map.set(k,{name:e.person.trim(),in:0,out:0,last:"",count:0});
     const p=map.get(k);
@@ -509,7 +554,8 @@ function setView(v){
 }
 
 function renderHome(){
-  const filtered = state.entries.filter(e=>inPeriod(e.date));
+  renderCcyBar();
+  const filtered = inCcy().filter(e=>inPeriod(e.date));
   let tin=0,tout=0; filtered.forEach(e=>{ if(isOpening(e)) return; e.type==="IN" ? tin+=e.amount : tout+=e.amount; });
   $("#sumIn").textContent=fmt(tin); $("#sumOut").textContent=fmt(tout);
   const net=tin-tout; const sn=$("#sumNet"); sn.textContent=(net<0?"−":"")+fmt(Math.abs(net)); sn.className="val "+(net>=0?"in":"out");
@@ -521,7 +567,7 @@ function renderHome(){
     let ps = parties().filter(p=>!q || key(p.name).includes(q));
     const s=$("#sort").value;
     ps.sort((a,b)=> s==="name" ? a.name.localeCompare(b.name) : s==="bal" ? Math.abs(b.out-b.in)-Math.abs(a.out-a.in) : b.last.localeCompare(a.last));
-    if(!ps.length){ list.innerHTML=`<div class="empty">${state.entries.length?"No matching parties":"No entries yet — use the buttons below to add your first entry"}</div>`; return; }
+    if(!ps.length){ list.innerHTML=`<div class="empty">${inCcy().length?"No matching parties":`No ${esc(ccyInfo(state.ccy).label)} entries yet — use the buttons below to add one`}</div>`; return; }
     const rowHtml = p => { const b=balLabel(p.out-p.in); return `
       <div class="row" data-person="${esc(p.name)}">
         <div class="avatar">${esc(initials(p.name))}</div>
@@ -591,13 +637,23 @@ function balanceSheetHtml(groups, rowHtml){
 function ledgerRows(){
   const k=key(state.person);
   let run=0;
-  const mine = sortEntries(state.entries.filter(e=>key(e.person)===k));
+  const mine = sortEntries(inCcy().filter(e=>key(e.person)===k));
   return [...mine.filter(isOpening), ...mine.filter(e=>!isOpening(e))].map(e=>{ run += e.type==="OUT" ? e.amount : -e.amount; return {...e, run}; });
 }
 function renderLedger(){
   const rows = ledgerRows();
-  if(!rows.length){ state.person=null; setView("home"); renderHome(); return; }
-  state.person = rows[rows.length-1].person;
+  const allMine = state.entries.filter(e=>key(e.person)===key(state.person));
+  if(!allMine.length){ state.person=null; setView("home"); renderHome(); return; }
+  state.person = (rows.length ? rows[rows.length-1] : allMine[allMine.length-1]).person;
+  // one account per currency for every party — always show all of them
+  const keepC=CUR, keepL=LOCALE;
+  $("#ledCcy").innerHTML = ccyList().map(c=>{
+    const es = allMine.filter(e=>e.currency===c);
+    let b = 0; es.forEach(e=> b += e.type==="OUT" ? e.amount : -e.amount);
+    applyCcy(c); const bl = balLabel(b);
+    return `<button class="ccy-acct${c===state.ccy?" on":""}" data-ccy="${esc(c)}"><b>${esc(ccyInfo(c).symbol===c?c:ccyInfo(c).symbol+" "+c)}</b><span class="${es.length?bl.cls:""}">${es.length?Math.abs(b).toLocaleString(LOCALE,{maximumFractionDigits:2}):"—"}</span><small>${es.length?bl.txt:"No entries"}</small></button>`;
+  }).join("");
+  CUR=keepC; LOCALE=keepL;
   $("#title").textContent = state.person;
   let tin=0,tout=0,op=0,hasOp=false; rows.forEach(r=>{ if(isOpening(r)){ hasOp=true; op += r.type==="OUT"?r.amount:-r.amount; return; } r.type==="IN"?tin+=r.amount:tout+=r.amount; });
   $("#ledOpenWrap").classList.toggle("hidden", !hasOp);
@@ -605,7 +661,7 @@ function renderLedger(){
   $("#btnOpening").textContent = hasOp ? "✎ Opening balance" : "⊕ Opening balance";
   $("#ledAvatar").textContent=initials(state.person);
   $("#ledName").textContent=state.person;
-  $("#ledMeta").textContent=`${rows.length} ${rows.length===1?"entry":"entries"} · ${prettyDate(rows[0].date)} – ${prettyDate(rows[rows.length-1].date)}`;
+  $("#ledMeta").textContent = rows.length ? `${ccyInfo(state.ccy).label} account · ${rows.length} ${rows.length===1?"entry":"entries"} · ${prettyDate(rows[0].date)} – ${prettyDate(rows[rows.length-1].date)}` : `${ccyInfo(state.ccy).label} account · no entries yet`;
   $("#ledIn").textContent=fmt(tin); $("#ledOut").textContent=fmt(tout);
   const b=balLabel(op+tout-tin); const lb=$("#ledBal"); lb.textContent=`${b.amt} ${b.txt}`; lb.className=b.cls;
   $("#ledBody").innerHTML = rows.map(r=>{ const bl=balLabel(r.run); return `
@@ -616,6 +672,10 @@ function renderLedger(){
       <td class="num ${r.type==="OUT"?"cout out":""}">${r.type==="OUT"?fmt(r.amount):""}</td>
       <td class="num"><b class="${bl.cls}">${bl.amt}</b><div class="sub">${bl.txt}</div></td>
     </tr>`; }).join("");
+  if(!rows.length){
+    const msg = `<div class="empty">No ${esc(ccyInfo(state.ccy).label)} entries for ${esc(state.person)} yet.<br>Use <b>+ Cash In</b> / <b>− Cash Out</b> below — the entry will be saved in ${esc(state.ccy)}.</div>`;
+    $("#ledCards").innerHTML = msg; $("#ledBody").innerHTML = `<tr><td colspan="5">${msg}</td></tr>`; return;
+  }
   $("#ledCards").innerHTML = rows.slice().reverse().map(r=>{ const bl=balLabel(r.run), op=isOpening(r), inn=r.type==="IN";
     const note = op ? (r.note && !/^opening balance$/i.test(r.note) ? r.note : "Opening balance") : (r.note || (inn?"Cash in":"Cash out"));
     return `
@@ -632,6 +692,16 @@ function renderLedger(){
     </div>`; }).join("");
 }
 function render(){ if(state.view==="ledger") renderLedger(); else if(state.view==="home") renderHome(); }
+function setCcy(code){ state.ccy = code; applyCcy(code); store.set("khata_ccy", code); }
+function renderCcyBar(){
+  $("#ccyBar").innerHTML = ccyList().map(c=>{ const i=ccyInfo(c), n=state.entries.filter(e=>e.currency===c).length;
+    return `<button role="tab" aria-selected="${c===state.ccy}" class="${c===state.ccy?"on":""}" data-ccy="${esc(c)}">${esc(i.symbol===i.code?i.code:i.symbol+" "+i.code)}<small>${esc(i.label)} · ${n}</small></button>`; }).join("");
+}
+function setFormCcy(code){
+  state.formCcy = code;
+  const list = ccyList(); if(!list.includes(code)) list.push(code);
+  $("#fCcy").innerHTML = list.map(c=>{ const i=ccyInfo(c); return `<button type="button" class="${c===code?"on":""}" data-ccy="${esc(c)}">${esc(i.symbol===i.code?i.code:i.symbol+" "+i.label)}</button>`; }).join("");
+}
 
 /* ---------- load ---------- */
 let lastLoad = 0, loading = false;
@@ -640,7 +710,9 @@ async function load(){
   if(state.view==="home") $("#list").innerHTML=`<div class="loading">Loading…</div>`;
   try{
     const data = await api("list");
-    state.entries = (data||[]).map(e=>({...e, amount:Number(e.amount)||0, type:String(e.type).toUpperCase()==="IN"?"IN":"OUT", person:String(e.person||"").trim()})).filter(e=>e.person);
+    const arr = data||[];
+    state.backendCcy = isDemo() || !arr.length || arr.some(e=>Object.prototype.hasOwnProperty.call(e,"currency"));
+    state.entries = arr.map(e=>({...e, amount:Number(e.amount)||0, type:String(e.type).toUpperCase()==="IN"?"IN":"OUT", person:String(e.person||"").trim(), currency: normCcy(e.currency) || DEFAULT_CCY})).filter(e=>e.person);
     render();
   }catch(err){
     if(/pin/i.test(err.message)){ store.del("khata_pin"); state.pin=""; showLock(err.message); return; }
@@ -665,9 +737,9 @@ function setOpeningMode(on){
   setType(state.type);
 }
 function openOpening(person){
-  const ex = state.entries.find(e=>key(e.person)===key(person) && isOpening(e));
+  const ex = inCcy().find(e=>key(e.person)===key(person) && isOpening(e));
   if(ex) return openEntry(ex.type, ex);
-  const first = sortEntries(state.entries.filter(e=>key(e.person)===key(person)))[0];
+  const first = sortEntries(inCcy().filter(e=>key(e.person)===key(person)))[0];
   openEntry("OUT", null, true);
   $("#fPerson").value = person;
   if(first && first.date && first.date < todayISO()) $("#fDate").value = first.date;
@@ -683,8 +755,9 @@ function openEntry(type, entry, opening){
   $("#fDate").value = entry ? entry.date : todayISO();
   $("#fMode").value = entry ? (entry.mode||"Cash") : "Cash";
   $("#fNote").value = entry ? (entry.note||"") : "";
+  setFormCcy(entry ? entry.currency : state.ccy);
   $("#btnDelete").classList.toggle("hidden", !entry);
-  $("#peopleList").innerHTML = parties().map(p=>`<option value="${esc(p.name)}">`).join("");
+  $("#peopleList").innerHTML = parties(true).map(p=>`<option value="${esc(p.name)}">`).join("");
   setOpeningMode(op);
   if(op && !entry) $("#fNote").value = "";
   openModal("#entryModal");
@@ -713,14 +786,17 @@ async function saveEntry(){
   if(!(amount>0)) return toast("Please enter a valid amount");
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return toast("Please select a date");
   // reuse existing spelling of the name (case-insensitive) so ledgers don't split
-  const existing = parties().find(p=>key(p.name)===key(person)); if(existing) person=existing.name;
-  const entry = { person, amount, date, type:state.type, mode: state.opening ? "Opening" : ($("#fMode").value || "Cash"), note: $("#fNote").value.trim() || (state.opening ? "Opening balance" : "") };
-  if(state.opening && !state.editing && state.entries.some(e=>key(e.person)===key(person) && isOpening(e)) && !confirm(person+" already has an opening balance. Add another one?")) return;
+  const existing = parties(true).find(p=>key(p.name)===key(person)); if(existing) person=existing.name;
+  const currency = state.formCcy;
+  if(!state.backendCcy && currency!==DEFAULT_CCY) return toast("To save "+currency+" entries, update the Apps Script (Code.gs) first — see README");
+  const entry = { person, amount, date, type:state.type, currency, mode: state.opening ? "Opening" : ($("#fMode").value || "Cash"), note: $("#fNote").value.trim() || (state.opening ? "Opening balance" : "") };
+  if(state.opening && !state.editing && state.entries.some(e=>e.currency===currency && key(e.person)===key(person) && isOpening(e)) && !confirm(person+" already has a "+currency+" opening balance. Add another one?")) return;
   const btn=$("#btnSave"); btn.disabled=true; btn.textContent="Saving…";
   try{
     if(state.editing){ entry.id=state.editing.id; await api("update",{entry}); }
     else { await api("add",{entry}); }
-    closeModal("#entryModal"); toast("Saved ✓");
+    closeModal("#entryModal");
+    if(currency!==state.ccy){ setCcy(currency); toast("Saved ✓ — now showing "+currency); } else toast("Saved ✓");
     if(state.view==="ledger") state.person = person;
     await load();
   }catch(err){ toast(err.message); }
@@ -736,10 +812,10 @@ async function deleteEntry(){
 function downloadCsv(){
   const rows = ledgerRows();
   const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
-  const lines = [["Date","Person","Type","Mode","Note","In","Out","Balance","Status"].map(q).join(",")];
-  rows.forEach(r=>{ const b=balLabel(r.run); lines.push([r.date,r.person,isOpening(r)?"OPENING":r.type,r.mode,r.note,r.type==="IN"?r.amount:"",r.type==="OUT"?r.amount:"",Math.abs(r.run),b.txt].map(q).join(",")); });
+  const lines = [["Date","Person","Currency","Type","Mode","Note","In","Out","Balance","Status"].map(q).join(",")];
+  rows.forEach(r=>{ const b=balLabel(r.run); lines.push([r.date,r.person,r.currency,isOpening(r)?"OPENING":r.type,r.mode,r.note,r.type==="IN"?r.amount:"",r.type==="OUT"?r.amount:"",Math.abs(r.run),b.txt].map(q).join(",")); });
   const blob = new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`Ledger_${state.person.replace(/[^\w]+/g,"_")}_${todayISO()}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`Ledger_${state.person.replace(/[^\w]+/g,"_")}_${state.ccy}_${todayISO()}.csv`; document.body.appendChild(a); a.click(); a.remove();
 }
 async function shareSummary(){
   const rows=ledgerRows(); let tin=0,tout=0,op=0,hasOp=false; rows.forEach(r=>{ if(isOpening(r)){ hasOp=true; op += r.type==="OUT"?r.amount:-r.amount; return; } r.type==="IN"?tin+=r.amount:tout+=r.amount; });
@@ -769,6 +845,9 @@ $("#btnCsv").onclick = downloadCsv;
 $("#btnPrint").onclick = ()=>window.print();
 $("#btnShare").onclick = shareSummary;
 $("#btnRename").onclick = renamePerson;
+$("#ccyBar").addEventListener("click", ev=>{ const b=ev.target.closest("button[data-ccy]"); if(!b || b.dataset.ccy===state.ccy) return; setCcy(b.dataset.ccy); renderHome(); });
+$("#ledCcy").addEventListener("click", ev=>{ const b=ev.target.closest("button[data-ccy]"); if(!b || b.dataset.ccy===state.ccy) return; setCcy(b.dataset.ccy); renderLedger(); });
+$("#fCcy").addEventListener("click", ev=>{ const b=ev.target.closest("button[data-ccy]"); if(b) setFormCcy(b.dataset.ccy); });
 $("#btnOpening").onclick = ()=>openOpening(state.person);
 $("#toggleOpening").onclick = ()=>{ setOpeningMode(!state.opening); if(state.opening && !state.editing) setType("OUT"); };
 ["#period","#sort"].forEach(s=>$(s).addEventListener("change",renderHome));
@@ -872,6 +951,7 @@ document.addEventListener("visibilitychange", ()=>{
 })();
 
 /* boot */
+setCcy(normCcy(store.get("khata_ccy")) || DEFAULT_CCY);
 if(!isDemo() && !state.pin) showLock();
 else { setView("home"); load(); }
 })();

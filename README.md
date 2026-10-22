@@ -7,7 +7,8 @@ The app runs in the browser (and can be installed on a phone or computer), and a
 - Record **Cash In** and **Cash Out** entries with date, payment mode and note
 - **Receivables & Payables statement:** Receivables on the left, Payables on the right, each with a total, and the net position below
 - **Party ledger** with date-wise entries and running balance; export to CSV, print / save as PDF, or share a summary
-- **Opening balance** per party
+- **Multi-currency:** TSH, Rupees (INR) and Dollar (USD). Each party has a separate account per currency, and the dashboard is shown one currency at a time — amounts in different currencies are never added together
+- **Opening balance** per party and currency
 - Summary of Cash In, Cash Out and Net for: all time, today, this month, last month, current financial year, or a **custom date range**
 - Edit, delete and rename — every change is written to the Google Sheet immediately
 - **Installable app** (Android, iPhone, Windows, Mac) via the **⬇ App** button
@@ -17,7 +18,7 @@ The app runs in the browser (and can be installed on a phone or computer), and a
 | File | Purpose |
 |---|---|
 | `index.html` | The app |
-| `config.js` | Settings: Apps Script URL, app name, currency, balance labels, financial year |
+| `config.js` | Settings: Apps Script URL, app name, currencies, balance labels, financial year |
 | `manifest.json`, `sw.js`, `icons/` | Make the app installable — keep them in the root folder |
 | `apps-script/Code.gs` | Google Sheet backend — paste into Apps Script (not run from the website) |
 
@@ -32,7 +33,7 @@ The app runs in the browser (and can be installed on a phone or computer), and a
 **Updating the script later:** Deploy → Manage deployments → Edit (pencil) → Version: **New version** → Deploy. This keeps the same URL.
 
 ## 2. Configure and publish the website
-1. In `config.js`, set `API_URL` to the Web App URL. Adjust `APP_NAME`, `CURRENCY`, `BALANCE_STYLE` and `FY_START_MONTH` if required.
+1. In `config.js`, set `API_URL` to the Web App URL. Adjust `APP_NAME`, `CURRENCIES`, `DEFAULT_CURRENCY`, `BALANCE_STYLE` and `FY_START_MONTH` if required.
 2. Upload all files (including the `icons` and `apps-script` folders) to the root of the GitHub repository.
 3. Hosting:
    - **Vercel:** import the repository, Application Preset **Other**, Root Directory `./`, no build settings. Each commit redeploys automatically.
@@ -41,7 +42,7 @@ The app runs in the browser (and can be installed on a phone or computer), and a
 
 ## Google Sheet layout
 The app uses the **Cash Flow** tab with the columns `Date | Name | Cash In | Cash Out`.
-On first use, the script adds **Mode | Note | ID** to the right and fills an ID for every existing row.
+On first use, the script adds **Mode | Note | ID | Currency** to the right and fills an ID for every existing row.
 
 - Columns are found by their header name, so their order can be changed — keep the header names the same.
 - **Do not edit or delete the ID column.** The app uses it to identify rows.
@@ -73,6 +74,15 @@ On first use, the script adds **Mode | Note | ID** to the right and fills an ID 
 - **Pull down** on the home screen or a ledger to refresh from the Google Sheet. Data also refreshes automatically when the app is reopened after 30 seconds or more.
 - Ledgers are shown as cards on phones (newest first) and as a table on larger screens and in print.
 - Ledger actions (CSV, Print / PDF, Share summary, Opening balance, Rename) scroll sideways.
+
+## Currencies
+- Choose the currency in the **Currency** row of the entry form (TSH / ₹ Rupees / $ Dollar). New entries default to the currency currently selected on the dashboard.
+- The **currency bar** at the top of the home screen switches the whole dashboard — summary, Receivables & Payables, All Entries — to one currency. Each button shows how many entries exist in that currency.
+- **Each party has one account per currency.** In a party's ledger, the three account tiles show the balance in each currency (or "No entries"); tap one to open that account and add entries to it.
+- Totals are never added across currencies. There is no exchange-rate conversion.
+- The Google Sheet stores the currency in a **Currency** column (added automatically). Rows with a blank Currency are treated as `DEFAULT_CURRENCY` (TSH).
+- If you total columns in the Sheet yourself, total per currency, e.g. `=SUMIFS(C:C, H:H, "USD", E:E, "<>Opening")` (C = Cash In, H = Currency, E = Mode).
+- **The updated `Code.gs` must be deployed** (as a New version) before non-default currencies can be saved. Until then the app blocks saving INR/USD entries with a message, so they are never saved under the wrong currency.
 
 ## Installing the app
 - **Android / Windows / Mac (Chrome or Edge):** tap **⬇ App** → Install.

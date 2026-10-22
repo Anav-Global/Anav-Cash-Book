@@ -6,13 +6,21 @@ window.KHATA_CONFIG = {
   // Company name shown on the balance sheet (defaults to APP_NAME)
   COMPANY_NAME: "",
   APP_NAME: "Balance",
-  CURRENCY: "TSH",
+  // Currencies available in the app. Every entry is saved with one of these,
+  // and each party has a separate account (ledger and balance) per currency.
+  CURRENCIES: [
+    { code: "TSH", symbol: "TSH", label: "TSH" },
+    { code: "INR", symbol: "₹",   label: "Rupees", locale: "en-IN" },
+    { code: "USD", symbol: "$",   label: "Dollar" }
+  ],
+  // Currency used for existing rows with a blank Currency column, and selected by default
+  DEFAULT_CURRENCY: "TSH",
   // "khata"    → party balances shown as "Receivable" / "Payable"
   // "cashflow" → party balances shown as "Net Paid" / "Net Received" (no credit tracking)
   BALANCE_STYLE: "khata",
   // First month of the financial year (1 = January … 12 = December).
   // Used by the "Current financial year" filter. 4 = April–March, 7 = July–June, 1 = January–December.
   FY_START_MONTH: 4,
-  // Number format: "en-US" → 115,000   "en-IN" → 1,15,000 (default: en-IN only when CURRENCY is "₹")
+  // Number format for currencies without their own "locale": "en-US" → 115,000   "en-IN" → 1,15,000
   NUMBER_LOCALE: "en-US"
 };

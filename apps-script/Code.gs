@@ -2,7 +2,8 @@
  * Cash Book — Google Sheets backend (Apps Script Web App)
  * Works with the existing "Cash Flow" sheet:
  *   Date | Name | Cash In | Cash Out   (these columns are left unchanged)
- * On first run the script adds three columns on the right: Mode | Note | ID
+ * On first run the script adds columns on the right: Mode | Note | ID | Currency
+ * (Rows with a blank Currency are treated as the app's default currency.)
  * (The app uses the ID column to edit and delete rows — do not edit or delete it.)
  *
  * SETUP
@@ -30,9 +31,10 @@ const COLS = {
   out:    ['cash out', 'cash outward', 'outward', 'out'],
   mode:   ['mode', 'payment mode'],
   note:   ['note', 'notes', 'remark', 'remarks', 'narration'],
-  id:     ['id']
+  id:     ['id'],
+  currency: ['currency', 'curr', 'ccy']
 };
-const NEW_HEADERS = { mode: 'Mode', note: 'Note', id: 'ID' };
+const NEW_HEADERS = { mode: 'Mode', note: 'Note', id: 'ID', currency: 'Currency' };
 
 /* ---------------- web app entry ---------------- */
 function doGet(e) { return respond(route((e && e.parameter) || {})); }
@@ -100,14 +102,14 @@ function getMap(sh) {
     if (!map[k]) throw new Error('Column "' + COLS[k][0] + '" was not found in the first row of the sheet');
   });
   let next = lastCol;
-  ['mode', 'note', 'id'].forEach(function (k) {
+  ['mode', 'note', 'id', 'currency'].forEach(function (k) {
     if (!map[k]) {
       next++;
       sh.getRange(1, next).setValue(NEW_HEADERS[k]).setFontWeight('bold');
       map[k] = next;
     }
   });
-  map.width = Math.max(next, map.date, map.person, map.in, map.out, map.mode, map.note, map.id);
+  map.width = Math.max(next, map.date, map.person, map.in, map.out, map.mode, map.note, map.id, map.currency);
   return map;
 }
 
@@ -169,7 +171,8 @@ function clean(e) {
   if (!(amount > 0)) throw new Error('Amount must be greater than 0');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid date format');
   return { person: person.slice(0, 120), type: type, amount: amount, date: date,
-           mode: String(e.mode || 'Cash').slice(0, 30), note: String(e.note || '').slice(0, 500) };
+           mode: String(e.mode || 'Cash').slice(0, 30), note: String(e.note || '').slice(0, 500),
+           currency: String(e.currency || '').trim().toUpperCase().replace(/[^A-Z₹$.]/g, '').slice(0, 10) };
 }
 
 // id format: "<rowId>", or "<rowId>|IN" / "<rowId>|OUT" when one row has both Cash In and Cash Out filled
@@ -210,6 +213,7 @@ function listEntries() {
       person: person || '(No name)',
       mode: String(g('mode') || ''),
       note: unsafeText(g('note')),
+      currency: String(g('currency') || '').trim().toUpperCase(),
       createdAt: 'r' + ('000000' + (i + 2)).slice(-7)  // same-day order = sheet row order
     };
     if (ain > 0)  out.push(Object.assign({ id: both ? id + '|IN' : id,  type: 'IN',  amount: ain },  base));
@@ -232,6 +236,7 @@ function addEntry(e) {
   row[map.mode - 1] = c.mode;
   row[map.note - 1] = safeText(c.note, 500);
   row[map.id - 1] = id;
+  row[map.currency - 1] = c.currency;
   const dateFmt = sh.getLastRow() >= 2 ? sh.getRange(2, map.date).getNumberFormat() : 'dd/mm/yyyy';
   sh.appendRow(row);
   const newRow = sh.getLastRow();
@@ -253,6 +258,7 @@ function updateEntry(e) {
   sh.getRange(row, map.out).setValue(c.type === 'OUT' ? c.amount : '');
   sh.getRange(row, map.mode).setValue(c.mode);
   sh.getRange(row, map.note).setValue(safeText(c.note, 500));
+  sh.getRange(row, map.currency).setValue(c.currency);
   return Object.assign({ id: e.id }, c);
 }
 
@@ -293,6 +299,6 @@ function testSetup() {
   const list = listEntries();
   Logger.log('OK — tab "' + getSheet().getName() + '", entries: ' + list.length);
   list.slice(0, 10).forEach(function (e) {
-    Logger.log(e.date + ' | ' + e.person + ' | ' + e.type + ' ' + e.amount);
+    Logger.log(e.date + ' | ' + e.person + ' | ' + e.type + ' ' + e.amount + ' ' + (e.currency || '(default)'));
   });
 }
