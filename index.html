@@ -456,7 +456,7 @@ const todayISO = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTi
 const prettyDate = iso => { if(!iso) return ""; const [y,m,d]=iso.split("-"); const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]||m; return `${+d} ${mn} ${y}`; };
 const initials = n => String(n).trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase() || "?";
 const key = n => String(n).trim().toLowerCase();
-function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2600); }
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none", String(msg).length>70 ? 9000 : 2600); }
 
 /* Balance convention: per party, Out − In.
    > 0  => you paid them more than you received  => "Receivable" (green)
@@ -788,19 +788,33 @@ async function saveEntry(){
   // reuse existing spelling of the name (case-insensitive) so ledgers don't split
   const existing = parties(true).find(p=>key(p.name)===key(person)); if(existing) person=existing.name;
   const currency = state.formCcy;
-  if(!state.backendCcy && currency!==DEFAULT_CCY) return toast("To save "+currency+" entries, update the Apps Script (Code.gs) first — see README");
   const entry = { person, amount, date, type:state.type, currency, mode: state.opening ? "Opening" : ($("#fMode").value || "Cash"), note: $("#fNote").value.trim() || (state.opening ? "Opening balance" : "") };
   if(state.opening && !state.editing && state.entries.some(e=>e.currency===currency && key(e.person)===key(person) && isOpening(e)) && !confirm(person+" already has a "+currency+" opening balance. Add another one?")) return;
   const btn=$("#btnSave"); btn.disabled=true; btn.textContent="Saving…";
   try{
-    if(state.editing){ entry.id=state.editing.id; await api("update",{entry}); }
-    else { await api("add",{entry}); }
+    // non-default currency needs the updated Apps Script — re-check live, don't trust the last load
+    if(currency!==DEFAULT_CCY && !state.backendCcy){ await checkBackend(); if(!state.backendCcy) throw new Error(OLD_SCRIPT_MSG); }
+    let res;
+    if(state.editing){ entry.id=state.editing.id; res = await api("update",{entry}); }
+    else { res = await api("add",{entry}); }
+    if(currency!==DEFAULT_CCY && res && typeof res==="object" && !Object.prototype.hasOwnProperty.call(res,"currency")){
+      // server ignored the currency → old script. Undo a new row so it isn't saved under the wrong currency.
+      if(!state.editing && res.id){ try{ await api("delete",{id:res.id}); }catch(e){} }
+      state.backendCcy = false; throw new Error(OLD_SCRIPT_MSG);
+    }
     closeModal("#entryModal");
     if(currency!==state.ccy){ setCcy(currency); toast("Saved ✓ — now showing "+currency); } else toast("Saved ✓");
     if(state.view==="ledger") state.person = person;
     await load();
   }catch(err){ toast(err.message); }
   finally{ btn.disabled=false; btn.textContent="Save"; }
+}
+const OLD_SCRIPT_MSG = "The web app is still running the OLD Apps Script, so this currency can't be saved. In Apps Script: Deploy → Manage deployments → ✎ Edit → Version: New version → Deploy.";
+async function checkBackend(){
+  if(isDemo()){ state.backendCcy = true; return true; }
+  const arr = await api("list") || [];
+  state.backendCcy = !arr.length || arr.some(e=>Object.prototype.hasOwnProperty.call(e,"currency"));
+  return state.backendCcy;
 }
 async function deleteEntry(){
   if(!state.editing || !confirm("Delete this entry? It will also be removed from the Google Sheet.")) return;
@@ -901,7 +915,11 @@ $("#btnSaveSettings").onclick=async()=>{
 $("#btnTest").onclick=async()=>{
   const prev={url:state.url,pin:state.pin}; state.url=$("#sUrl").value.trim(); state.pin=$("#sPin").value.trim();
   $("#testMsg").textContent="Testing…";
-  try{ await api("ping"); $("#testMsg").textContent = isDemo() ? "Demo mode (no URL set)" : "✓ Connected"; }
+  try{
+    await api("ping");
+    if(isDemo()) $("#testMsg").textContent = "Demo mode (no URL set)";
+    else { const ok = await checkBackend(); $("#testMsg").textContent = ok ? "✓ Connected — Apps Script is up to date (multi-currency supported)" : "⚠ Connected, but the web app is running the OLD Apps Script — deploy a New version (Manage deployments → Edit → New version)"; }
+  }
   catch(err){ $("#testMsg").textContent="✗ "+err.message; }
   finally{ state.url=prev.url; state.pin=prev.pin; }
 };

@@ -82,7 +82,9 @@ On first use, the script adds **Mode | Note | ID | Currency** to the right and f
 - Totals are never added across currencies. There is no exchange-rate conversion.
 - The Google Sheet stores the currency in a **Currency** column (added automatically). Rows with a blank Currency are treated as `DEFAULT_CURRENCY` (TSH).
 - If you total columns in the Sheet yourself, total per currency, e.g. `=SUMIFS(C:C, H:H, "USD", E:E, "<>Opening")` (C = Cash In, H = Currency, E = Mode).
-- **The updated `Code.gs` must be deployed** (as a New version) before non-default currencies can be saved. Until then the app blocks saving INR/USD entries with a message, so they are never saved under the wrong currency.
+- **The updated `Code.gs` must be deployed** (as a New version) before non-default currencies can be saved. Until then the app refuses to save INR/USD entries, so they are never saved under the wrong currency.
+- **Check:** ⚙ Settings → **Test**. "Apps Script is up to date" means currencies will save; "running the OLD Apps Script" means the web app URL in `config.js` is still serving the old version.
+- Saving the code or running `testSetup` in the editor is **not** enough — the web app only changes after Deploy → Manage deployments → ✎ Edit → Version: **New version** → Deploy. "New deployment" creates a different URL, which would then need to be put in `config.js`.
 
 ## Installing the app
 - **Android / Windows / Mac (Chrome or Edge):** tap **⬇ App** → Install.
