@@ -1,7 +1,7 @@
 // Service worker — makes the app installable.
 // Network-first: always tries to load the latest version and falls back to the cache only when offline.
 // Google Sheet data (Apps Script requests) is never cached.
-const CACHE = 'balance-v9';
+const CACHE = 'balance-v10';
 const SHELL = [
   './',
   './index.html',

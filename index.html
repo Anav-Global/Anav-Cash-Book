@@ -358,7 +358,7 @@ body{overscroll-behavior-y:contain}
     <div class="field"><label>Apps Script Web App URL</label>
       <input id="sUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
     <div class="field"><label>PIN</label><input id="sPin" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="APP_PIN"></div>
-    <div class="sub" style="margin-bottom:12px">Leave the URL blank to use demo mode. These settings are saved in this browser only.</div>
+    <div class="sub" id="sUrlNote" style="margin-bottom:12px">Leave the URL blank to use demo mode. These settings are saved in this browser only.</div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" id="btnTest">Test</button>
       <button class="btn btn-ghost" id="btnLogout">Logout</button>
@@ -427,7 +427,7 @@ const store = {
 };
 
 const state = {
-  url: store.get("khata_url") || CFG.API_URL || "",
+  url: CFG.API_URL || store.get("khata_url") || "",
   pin: store.get("khata_pin") || "",
   entries: [],
   view: "home",
@@ -793,14 +793,14 @@ async function saveEntry(){
   const btn=$("#btnSave"); btn.disabled=true; btn.textContent="Saving…";
   try{
     // non-default currency needs the updated Apps Script — re-check live, don't trust the last load
-    if(currency!==DEFAULT_CCY && !state.backendCcy){ await checkBackend(); if(!state.backendCcy) throw new Error(OLD_SCRIPT_MSG); }
+    if(currency!==DEFAULT_CCY && !state.backendCcy){ await checkBackend(); if(!state.backendCcy) throw new Error(OLD_SCRIPT_MSG_F()); }
     let res;
     if(state.editing){ entry.id=state.editing.id; res = await api("update",{entry}); }
     else { res = await api("add",{entry}); }
     if(currency!==DEFAULT_CCY && res && typeof res==="object" && !Object.prototype.hasOwnProperty.call(res,"currency")){
       // server ignored the currency → old script. Undo a new row so it isn't saved under the wrong currency.
       if(!state.editing && res.id){ try{ await api("delete",{id:res.id}); }catch(e){} }
-      state.backendCcy = false; throw new Error(OLD_SCRIPT_MSG);
+      state.backendCcy = false; throw new Error(OLD_SCRIPT_MSG_F());
     }
     closeModal("#entryModal");
     if(currency!==state.ccy){ setCcy(currency); toast("Saved ✓ — now showing "+currency); } else toast("Saved ✓");
@@ -809,7 +809,8 @@ async function saveEntry(){
   }catch(err){ toast(err.message); }
   finally{ btn.disabled=false; btn.textContent="Save"; }
 }
-const OLD_SCRIPT_MSG = "The web app is still running the OLD Apps Script, so this currency can't be saved. In Apps Script: Deploy → Manage deployments → ✎ Edit → Version: New version → Deploy.";
+const urlTail = u => { const m=String(u||"").match(/\/s\/([^/]+)\/exec/); return m ? "…"+m[1].slice(-8)+"/exec" : (u||"(none)"); };
+const OLD_SCRIPT_MSG_F = () => "This URL is running an OLD Apps Script version, so this currency can't be saved. URL in use: "+urlTail(state.url)+". In Apps Script: Deploy → Manage deployments → check this URL → ✎ Edit → Version: New version → Deploy.";
 async function checkBackend(){
   if(isDemo()){ state.backendCcy = true; return true; }
   const arr = await api("list") || [];
@@ -901,12 +902,18 @@ $("#btnUnlock").onclick=unlock;
 $("#pinInput").addEventListener("keydown",e=>{ if(e.key==="Enter") unlock(); });
 
 /* settings */
-$("#btnSettings").onclick=()=>{ $("#sUrl").value=state.url; $("#sPin").value=state.pin; $("#testMsg").textContent=""; openModal("#settingsModal"); };
+$("#btnSettings").onclick=()=>{
+  $("#sUrl").value=state.url; $("#sPin").value=state.pin; $("#testMsg").textContent="";
+  const fixed = !!CFG.API_URL;
+  $("#sUrl").readOnly = fixed;
+  $("#sUrlNote").textContent = fixed ? "Set in config.js — change it there (on GitHub) to point the app at a different deployment." : "Leave the URL blank to use demo mode. Saved in this browser only.";
+  openModal("#settingsModal");
+};
 $("#btnSaveSettings").onclick=async()=>{
-  const url=$("#sUrl").value.trim(), pin=$("#sPin").value.trim();
+  const url = CFG.API_URL || $("#sUrl").value.trim(), pin=$("#sPin").value.trim();
   if(url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) { $("#testMsg").textContent="The URL must be the Web App URL ending in '/exec'."; return; }
   state.url=url; state.pin=pin;
-  url ? store.set("khata_url",url) : store.del("khata_url");
+  if(CFG.API_URL) store.del("khata_url"); else url ? store.set("khata_url",url) : store.del("khata_url");
   pin ? store.set("khata_pin",pin) : store.del("khata_pin");
   demoData=null; closeModal("#settingsModal");
   if(!isDemo() && !state.pin) return showLock();
@@ -918,7 +925,7 @@ $("#btnTest").onclick=async()=>{
   try{
     await api("ping");
     if(isDemo()) $("#testMsg").textContent = "Demo mode (no URL set)";
-    else { const ok = await checkBackend(); $("#testMsg").textContent = ok ? "✓ Connected — Apps Script is up to date (multi-currency supported)" : "⚠ Connected, but the web app is running the OLD Apps Script — deploy a New version (Manage deployments → Edit → New version)"; }
+    else { const ok = await checkBackend(); $("#testMsg").textContent = (ok ? "✓ Connected — Apps Script is up to date (multi-currency supported)." : "⚠ Connected, but this URL is running an OLD Apps Script version — deploy a New version for this deployment (Manage deployments → ✎ Edit → New version).") + " URL: " + urlTail(state.url); }
   }
   catch(err){ $("#testMsg").textContent="✗ "+err.message; }
   finally{ state.url=prev.url; state.pin=prev.pin; }
@@ -969,6 +976,7 @@ document.addEventListener("visibilitychange", ()=>{
 })();
 
 /* boot */
+if(CFG.API_URL && store.get("khata_url") && store.get("khata_url")!==CFG.API_URL) store.del("khata_url");   // drop a stale URL saved on this device
 setCcy(normCcy(store.get("khata_ccy")) || DEFAULT_CCY);
 if(!isDemo() && !state.pin) showLock();
 else { setView("home"); load(); }
